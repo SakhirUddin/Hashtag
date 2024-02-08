@@ -93,9 +93,7 @@ button{
             font-size: 28px;
         }
        
-        .buttonGroups{
-            gap: 200px;
-        }
+       
         .doublebtns{
             display: flex;
             gap: 5px;
