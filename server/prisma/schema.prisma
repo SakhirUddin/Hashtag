@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  username     String      @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  bio          String?
+  role         String      @default("creator") // guest, member, creator, admin
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  photos       Photo[]
+  likes        Like[]
+  downloads    Download[]
+}
+
+model Photo {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  imageUrl       String
+  thumbnailUrl   String
+  width          Int          @default(1920)
+  height         Int          @default(1080)
+  aspectRatio    String       @default("16/9")
+  camera         String?
+  lens           String?
+  focalLength    String?
+  aperture       String?
+  shutterSpeed   String?
+  iso            String?
+  location       String?
+  viewsCount     Int          @default(0)
+  downloadsCount Int          @default(0)
+  likesCount     Int          @default(0)
+  isFeatured     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  tags           PhotoTag[]
+  likes          Like[]
+  downloads      Download[]
+}
+
+model Tag {
+  id         String     @id @default(uuid())
+  name       String     @unique
+  slug       String     @unique
+  photoCount Int        @default(0)
+  photos     PhotoTag[]
+}
+
+model PhotoTag {
+  photoId String
+  tagId   String
+  photo   Photo  @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([photoId, tagId])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  photoId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, photoId])
+}
+
+model Download {
+  id           String   @id @default(uuid())
+  photoId      String
+  userId       String?
+  resolution   String   @default("original") // small, medium, original
+  photo        Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  downloadedAt DateTime @default(now())
+}

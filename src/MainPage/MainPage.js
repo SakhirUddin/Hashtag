@@ -1,97 +1,158 @@
-import React from "react";
-import '../index.css'
-import './MainPage.css'
-import Search from '../Img/Searchicon.png'
+import React, { useState, useEffect, useCallback } from 'react';
+import Navbar from '../components/Navbar';
+import HeroBanner from '../components/HeroBanner';
+import HashtagBar from '../components/HashtagBar';
+import MasonryGrid from '../components/MasonryGrid';
+import PhotoModal from '../components/PhotoModal';
+import UploadModal from '../components/UploadModal';
+import Footer from '../components/Footer';
+import { getPhotos } from '../services/api';
+import { MOCK_PHOTOS } from '../data/mockPhotos';
 
-import Strawberry from '../Img/strawberry.png'
-import Icecream from '../Img/icecream.png'
-import CripsyChicken from '../Img/cripsychicken.png'
-import Chowmin from '../Img/chowmin.png'
-import Eggroll from '../Img/eggroll.png'
-import ButterNun from '../Img/butternun.png'
+export default function MainPage() {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTag, setActiveTag] = useState('All');
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-import {Link} from 'react-router-dom'
+  // Fetch photos from backend API
+  const loadPhotos = useCallback(async (tag, query) => {
+    setLoading(true);
+    try {
+      const data = await getPhotos(tag, query);
+      setPhotos(data);
+    } catch (err) {
+      console.warn('Backend API unavailable, falling back to cached photos:', err);
+      // Client-side fallback if server is offline
+      const filtered = MOCK_PHOTOS.filter((p) => {
+        const matchesTag = tag === 'All' || p.hashtags.some(t => t.toLowerCase() === tag.toLowerCase());
+        const term = query.toLowerCase().trim();
+        const matchesSearch = !term || p.title.toLowerCase().includes(term) || p.hashtags.some(t => t.toLowerCase().includes(term));
+        return matchesTag && matchesSearch;
+      });
+      setPhotos(filtered);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadPhotos(activeTag, searchTerm);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [activeTag, searchTerm, loadPhotos]);
 
-function MainPage() {
-    return (
+  const handleSelectHashtag = (tag) => {
+    setActiveTag(tag);
+    const galleryElem = document.getElementById('gallery-section');
+    if (galleryElem) {
+      galleryElem.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleUploadSuccess = (newPhoto) => {
+    setPhotos((prev) => [newPhoto, ...prev]);
+  };
+
+  const handlePhotoUpdate = useCallback((updatedPhoto) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === updatedPhoto.id ? { ...p, ...updatedPhoto } : p))
+    );
+    setSelectedPhoto((prev) =>
+      prev && prev.id === updatedPhoto.id ? { ...prev, ...updatedPhoto } : prev
+    );
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-white flex flex-col font-sans selection:bg-black selection:text-white">
+      {/* Sticky Header */}
+      <Navbar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        onOpenUpload={() => setUploadModalOpen(true)}
+      />
+
+      {/* Hero Banner */}
+      {!searchTerm && (
+        <HeroBanner
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onSelectTag={handleSelectHashtag}
+        />
+      )}
+
+      {/* Sticky Hashtags Filter Pill Bar */}
+      <HashtagBar
+        activeTag={activeTag}
+        onSelectTag={handleSelectHashtag}
+      />
+
+      {/* Main Content Gallery */}
+      <main id="gallery-section" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <section className="w-[100%] h-[auto]">
-            <div className="container-fluid">
-                <div className="image-div">
-                    <div className=" NavLinks flex  container px-[70px] m-auto justify-between pt-5">
-                        <div>
-                            <h1 className="text-white text-3xl font-bold logo">#Hashtag</h1>
-                        </div>
-                        <div className="text-white flex buttonGroups">
-                            <select className="px-[5px]  bg-transparent text-white">
-                                <option>Explore </option>
-                                <option>LookOut</option>
-                                <option>NewShines</option>
-                                <option>Dramatic</option>
-                                <option>Aqua</option>
-                            </select>
-                            <div className="doublebtns">
-                            <Link to='/Login'><button className="LoginBtn" type="button" class="btn btn-outline-light">Login</button></Link>
-                            <Link to='/Signup'><button type="button" className="btn btn-light text-black bg-white">Signup</button></Link>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex flex-col justify-center items-center h-[100%] gap-3 container pb-8">
-                        <h1 className="uppercase text-center t text-white heading">Let’s Find The Perfect Free <br /> Photo For You</h1>
-                        <div className="w-3/4 relative searchPad">
-                            <span className="top-[20px] left-[12px] absolute"><img src={Search} className="w-[15px]"></img></span>
-                            <input className=" SearchPlace w-[100%] py-[15px] px-[40px] rounded text-[16px] outline-none" placeholder="Search for all images on #Hastag"></input>
-                            <select className="absolute right-[15px] top-[16px] text-[13px]">
-                                <option>All Images</option>
-                                <option>Featured</option>
-                                <option>On Trend</option>
-                                <option>Paintings</option>
-                                <option>3D Looks</option>
-                            </select>
+        {/* Results Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+              {searchTerm
+                ? `Results for "${searchTerm}"`
+                : activeTag === 'All'
+                ? 'Curated Free Photos'
+                : `#${activeTag} Photos`}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              {loading ? 'Fetching photos from database...' : `Showing ${photos.length} photos from SQLite database`}
+            </p>
+          </div>
 
-                        </div>
-                    </div>
-                </div>
-                <div className="container mt-4 flex flex-col gap-4 ">
-                    <div>
-                        <h1 className="text-[38px] popular-heading">Popular Hashtags</h1>
-                    </div>
-                    <div className="btn-grps  container">
-                        <button type="button" className="m-2 p-[7px]  border-[1px] h-[40px] rounded-lg w-[96px]">#Nature</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Travel</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Food</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Fashion</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Happy</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Places</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Places</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Selfie</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Music</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Animals</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[96px]">#Lifestyle</button>
-                        <button type="button" className="m-2 p-[7px] border-[1px] h-[40px] rounded-lg w-[110px]">#Motivation</button>
-                    </div>
-      
+          {(searchTerm || activeTag !== 'All') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setActiveTag('All');
+              }}
+              className="text-xs font-semibold text-gray-500 hover:text-black underline underline-offset-4"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
 
-                    <div className="container mt-[13px] flex flex-col gap-4 justify-center items-center">
-                        <img src={Strawberry} className="w-[1057px] h-auto"></img>
-                        <img src={Icecream} className="w-[1057px] h-auto"></img>
-                        <img src={CripsyChicken} className="w-[1057px] h-auto"></img>
-                        <img src={Chowmin} className="w-[1057px] h-auto"></img>
-                        <img src={Eggroll} className="w-[1057px] h-auto"></img>
-                        <img src={ButterNun} className="w-[1057px] h-auto"></img>
-                    </div>
-                </div>
-                <footer>
-                    <div className=" p-[20px] footer-div">
-                        <h1 className="text-center text-[34px] font-bold">#Hashtag</h1>
-                        <p className="text-center text-[24px]">Make Something Awesome</p>
-                    </div>
-                </footer>
-            </div>
+        {/* Loading Spinner or Masonry Grid */}
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin" />
+            <p className="text-xs text-gray-400 font-medium">Querying #Hashtag SQLite database...</p>
+          </div>
+        ) : (
+          <MasonryGrid
+            photos={photos}
+            onPhotoClick={(photo) => setSelectedPhoto(photo)}
+            onPhotoUpdate={handlePhotoUpdate}
+          />
+        )}
+      </main>
 
-        </section>
-    )
+      {/* Footer */}
+      <Footer />
+
+      {/* Photo QuickView Modal */}
+      <PhotoModal
+        photo={selectedPhoto}
+        onClose={() => setSelectedPhoto(null)}
+        onSelectHashtag={handleSelectHashtag}
+        onPhotoUpdate={handlePhotoUpdate}
+      />
+
+      {/* Creator Upload Modal */}
+      <UploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUploadSuccess={handleUploadSuccess}
+      />
+    </div>
+  );
 }
-
-export default MainPage;
