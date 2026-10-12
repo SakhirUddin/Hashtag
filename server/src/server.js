@@ -33,7 +33,23 @@ app.use('/api/tags', tagsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/users', usersRouter);
 
-// Health check endpoint
+// Root & Health check endpoints
+app.get('/', (req, res) => {
+  res.json({
+    name: '#Hashtag Cloud API',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      photos: '/api/photos',
+      tags: '/api/tags',
+      auth: '/api/auth',
+      users: '/api/users',
+      admin: '/api/admin',
+    },
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
