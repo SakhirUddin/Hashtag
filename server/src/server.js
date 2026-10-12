@@ -10,6 +10,7 @@ const adminRouter = require('./routes/admin');
 const usersRouter = require('./routes/users');
 
 const app = express();
+app.enable('trust proxy');
 const PORT = process.env.PORT || 5000;
 
 // Enable CORS for frontend
