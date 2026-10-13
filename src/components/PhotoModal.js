@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   X, Heart, Download, Share2, MapPin, 
-  Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark, Sparkles 
+  Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark, Sparkles,
+  MessageSquare, Send, Trash2
 } from 'lucide-react';
 import { 
-  likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser, getRelatedPhotos 
+  likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser, getRelatedPhotos,
+  getPhotoComments, postPhotoComment, deletePhotoComment
 } from '../services/api';
 
 export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpdate, onSaveToCollection }) {
@@ -14,15 +16,24 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
   const [downloading, setDownloading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Comments state
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+
   const navigate = useNavigate();
   const viewedPhotoIdRef = useRef(null);
   const modalScrollRef = useRef(null);
+  const currentUser = getCurrentUser();
 
   useEffect(() => {
     if (!photo) {
       viewedPhotoIdRef.current = null;
       setPhotoData(null);
       setRelatedPhotos([]);
+      setComments([]);
       return;
     }
 
@@ -48,6 +59,19 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
       getRelatedPhotos(photoData.id).then((items) => {
         setRelatedPhotos(items || []);
       });
+
+      // Load comments for current photo
+      setCommentsLoading(true);
+      getPhotoComments(photoData.id)
+        .then((items) => {
+          setComments(items || []);
+        })
+        .catch((err) => {
+          console.warn('Failed to load comments:', err);
+        })
+        .finally(() => {
+          setCommentsLoading(false);
+        });
     }
   }, [photoData?.id]);
 
@@ -133,6 +157,38 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      if (window.confirm('Sign in to post comments. Go to login now?')) {
+        navigate('/Login');
+      }
+      return;
+    }
+    if (!commentText.trim()) return;
+
+    setSubmittingComment(true);
+    try {
+      const newComment = await postPhotoComment(photoData.id, commentText.trim());
+      setComments((prev) => [...prev, newComment]);
+      setCommentText('');
+    } catch (err) {
+      alert(err.message || 'Failed to post comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+    try {
+      await deletePhotoComment(photoData.id, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      alert(err.message || 'Failed to delete comment');
+    }
   };
 
   return (
@@ -368,6 +424,116 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Community Comments Section */}
+            <div className="pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-gray-700" />
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">
+                    Comments ({comments.length})
+                  </h3>
+                </div>
+              </div>
+
+              {/* New Comment Input */}
+              <form onSubmit={handleCommentSubmit} className="flex items-start gap-3 mb-6">
+                <img
+                  src={currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}
+                  alt="You"
+                  className="w-8 h-8 rounded-full object-cover border border-gray-200 mt-1 flex-shrink-0"
+                />
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder={currentUser ? "Write a comment..." : "Sign in to join the conversation..."}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    disabled={submittingComment}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition-all pr-12"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || submittingComment}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white bg-black rounded-xl hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Post comment"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </form>
+
+              {/* Comments List */}
+              {commentsLoading ? (
+                <div className="flex items-center justify-center py-6 text-gray-400">
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+                </div>
+              ) : comments.length === 0 ? (
+                <div className="text-center py-6 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <p className="text-xs font-semibold text-gray-500">No comments yet</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Be the first to share your thoughts on this shot!</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {comments.map((comment) => {
+                    const canDelete =
+                      currentUser &&
+                      (currentUser.id === comment.userId ||
+                        currentUser.username === comment.user?.username ||
+                        currentUser.id === photoData.photographer?.id ||
+                        currentUser.role === 'admin');
+
+                    return (
+                      <div key={comment.id} className="flex items-start justify-between gap-3 group bg-gray-50/60 p-3 rounded-2xl border border-gray-100">
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <Link
+                            to={`/profile/${comment.user?.username}`}
+                            onClick={onClose}
+                            className="flex-shrink-0"
+                          >
+                            <img
+                              src={comment.user?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${comment.user?.username || 'user'}`}
+                              alt={comment.user?.displayName || 'User'}
+                              className="w-7 h-7 rounded-full object-cover border border-gray-200"
+                            />
+                          </Link>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Link
+                                to={`/profile/${comment.user?.username}`}
+                                onClick={onClose}
+                                className="text-xs font-bold text-gray-900 hover:underline truncate"
+                              >
+                                {comment.user?.displayName || comment.user?.username || 'Community Member'}
+                              </Link>
+                              <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                {new Date(comment.createdAt).toLocaleDateString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-700 mt-1 leading-relaxed break-words whitespace-pre-wrap">
+                              {comment.content}
+                            </p>
+                          </div>
+                        </div>
+
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity flex-shrink-0"
+                            title="Delete comment"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* More Like This (Smart Recommendations Engine) */}

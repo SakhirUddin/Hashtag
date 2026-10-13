@@ -1,8 +1,23 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { authenticateToken } = require('./auth');
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'hashtag-secret-key';
+
+// Safely extract current user from auth header if present
+const extractUser = (req) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return null;
+  const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+};
 
 // Helper to format a photo object cleanly
 const formatPhoto = (photo, currentUserId) => {
@@ -106,6 +121,23 @@ router.get('/:username', async (req, res) => {
     const totalDownloads = uploadedPhotos.reduce((acc, p) => acc + (p.downloadsCount || 0), 0);
     const totalLikes = uploadedPhotos.reduce((acc, p) => acc + (p.likesCount || 0), 0);
 
+    // 4. Compute follow metrics
+    const followersCount = await prisma.follow.count({ where: { followingId: user.id } });
+    const followingCount = await prisma.follow.count({ where: { followerId: user.id } });
+
+    const currentUser = extractUser(req);
+    const currentUserId = currentUser ? (currentUser.id || currentUser.userId) : null;
+    const isFollowing = currentUserId
+      ? (await prisma.follow.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: user.id,
+            },
+          },
+        })) !== null
+      : false;
+
     res.json({
       profile: {
         ...user,
@@ -115,7 +147,10 @@ router.get('/:username', async (req, res) => {
           totalViews,
           totalDownloads,
           totalLikes,
+          followersCount,
+          followingCount,
         },
+        isFollowing,
       },
       photos: formattedUploads,
       likedPhotos,
@@ -186,6 +221,69 @@ router.delete('/photos/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Delete user photo error:', error);
     res.status(500).json({ error: 'Failed to delete photo' });
+  }
+});
+
+// POST /api/users/:id/follow - Toggle follow / unfollow
+router.post('/:id/follow', authenticateToken, async (req, res) => {
+  try {
+    const followerId = req.user.id || req.user.userId;
+    const targetUserId = req.params.id;
+
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: targetUserId },
+          { username: targetUserId.toLowerCase() },
+        ],
+      },
+    });
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (followerId === targetUser.id) {
+      return res.status(400).json({ error: 'You cannot follow yourself' });
+    }
+
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: targetUser.id,
+        },
+      },
+    });
+
+    let following = false;
+    if (existingFollow) {
+      await prisma.follow.delete({
+        where: { id: existingFollow.id },
+      });
+      following = false;
+    } else {
+      await prisma.follow.create({
+        data: {
+          followerId,
+          followingId: targetUser.id,
+        },
+      });
+      following = true;
+    }
+
+    const followersCount = await prisma.follow.count({
+      where: { followingId: targetUser.id },
+    });
+
+    res.json({
+      following,
+      followersCount,
+      message: following ? 'Followed successfully' : 'Unfollowed successfully',
+    });
+  } catch (error) {
+    console.error('Follow toggle error:', error);
+    res.status(500).json({ error: 'Failed to update follow status' });
   }
 });
 

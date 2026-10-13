@@ -5,12 +5,13 @@ export function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getPhotos(tag = 'All', search = '', sort = 'latest', orientation = 'all') {
+export async function getPhotos(tag = 'All', search = '', sort = 'latest', orientation = 'all', feed = 'explore') {
   const params = new URLSearchParams();
   if (tag && tag.toLowerCase() !== 'all') params.append('tag', tag);
   if (search && search.trim()) params.append('q', search.trim());
   if (sort && sort !== 'latest') params.append('sort', sort);
   if (orientation && orientation !== 'all') params.append('orientation', orientation);
+  if (feed && feed === 'following') params.append('feed', 'following');
 
   const response = await fetch(`${API_BASE}/photos?${params.toString()}`, {
     headers: { ...getAuthHeaders() },
@@ -318,3 +319,55 @@ export async function deleteCollectionApi(collectionId) {
   if (!response.ok) throw new Error('Failed to delete collection');
   return await response.json();
 }
+
+// Social & Community APIs
+export async function followUserApi(userId) {
+  const response = await fetch(`${API_BASE}/users/${encodeURIComponent(userId)}/follow`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update follow status');
+  }
+  return await response.json();
+}
+
+export async function getPhotoComments(photoId) {
+  const response = await fetch(`${API_BASE}/photos/${photoId}/comments`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch comments');
+  const data = await response.json();
+  return data.comments || [];
+}
+
+export async function postPhotoComment(photoId, content) {
+  const response = await fetch(`${API_BASE}/photos/${photoId}/comments`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to post comment');
+  }
+  const data = await response.json();
+  return data.comment;
+}
+
+export async function deletePhotoComment(photoId, commentId) {
+  const response = await fetch(`${API_BASE}/photos/${photoId}/comments/${commentId}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete comment');
+  return await response.json();
+}
+

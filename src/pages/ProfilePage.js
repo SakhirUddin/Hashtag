@@ -14,7 +14,7 @@ import AddToCollectionModal from '../components/AddToCollectionModal';
 import { 
   getUserProfile, updateUserProfile, deleteUserPhoto, 
   getUserCollections, createCollectionApi,
-  getCurrentUser
+  getCurrentUser, followUserApi
 } from '../services/api';
 
 export default function ProfilePage() {
@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [saveModalPhoto, setSaveModalPhoto] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [shareToast, setShareToast] = useState(false);
 
   // Collections state
@@ -70,6 +71,7 @@ export default function ProfilePage() {
       setEditName(data.profile.displayName);
       setEditBio(data.profile.bio || '');
       setEditAvatar(data.profile.avatarUrl || '');
+      setIsFollowing(Boolean(data.profile.isFollowing));
 
       // Load user collections
       try {
@@ -84,6 +86,34 @@ export default function ProfilePage() {
       setLoading(false);
     }
   }, [targetUsername, navigate]);
+
+  const handleToggleFollow = async () => {
+    if (!currentUser) {
+      navigate('/Login');
+      return;
+    }
+    if (!profileData?.profile?.id) return;
+
+    setFollowLoading(true);
+    try {
+      const res = await followUserApi(profileData.profile.id);
+      setIsFollowing(res.following);
+      setProfileData((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          stats: {
+            ...prev.profile.stats,
+            followersCount: res.followersCount,
+          },
+        },
+      }));
+    } catch (err) {
+      alert(err.message || 'Failed to update follow status');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -314,6 +344,17 @@ export default function ProfilePage() {
                   </p>
                 )}
 
+                {/* Follower / Following counter badge */}
+                <div className="flex items-center justify-center sm:justify-start gap-3 text-xs sm:text-sm font-medium text-gray-600 mt-3">
+                  <span>
+                    <strong className="font-black text-gray-900">{stats.followersCount || 0}</strong> followers
+                  </span>
+                  <span className="text-gray-300">•</span>
+                  <span>
+                    <strong className="font-black text-gray-900">{stats.followingCount || 0}</strong> following
+                  </span>
+                </div>
+
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-gray-400 mt-3 font-medium">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -350,14 +391,17 @@ export default function ProfilePage() {
               ) : (
                 <>
                   <button
-                    onClick={() => setIsFollowing(!isFollowing)}
-                    className={`inline-flex items-center gap-2 text-xs sm:text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-sm active:scale-95 ${
+                    onClick={handleToggleFollow}
+                    disabled={followLoading}
+                    className={`inline-flex items-center gap-2 text-xs sm:text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-sm active:scale-95 disabled:opacity-60 ${
                       isFollowing
                         ? 'bg-gray-100 hover:bg-gray-200 text-gray-800'
                         : 'bg-black hover:bg-gray-800 text-white'
                     }`}
                   >
-                    {isFollowing ? (
+                    {followLoading ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                    ) : isFollowing ? (
                       <>
                         <UserCheck className="w-4 h-4 text-green-600" />
                         <span>Following</span>

@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
+const { authenticateToken } = require('./auth');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'hashtag-secret-key';
@@ -92,13 +93,29 @@ const formatPhoto = (photo, currentUserId) => {
   };
 };
 
-// GET /api/photos (supports ?tag=Nature, ?q=search_term, ?sort=popular|views|downloads|oldest|latest, ?orientation=landscape|portrait|square)
+// GET /api/photos (supports ?tag=Nature, ?q=search_term, ?sort=popular|views|downloads|oldest|latest, ?orientation=landscape|portrait|square, ?feed=following)
 router.get('/', async (req, res) => {
   try {
     const currentUser = extractUser(req);
-    const { tag, q, sort, orientation } = req.query;
+    const currentUserId = currentUser ? (currentUser.id || currentUser.userId) : null;
+    const { tag, q, sort, orientation, feed } = req.query;
 
     const conditions = [];
+
+    // Following network feed
+    if (feed === 'following') {
+      if (!currentUserId) {
+        return res.json({ photos: [] });
+      }
+      const followingList = await prisma.follow.findMany({
+        where: { followerId: currentUserId },
+        select: { followingId: true },
+      });
+      const followingIds = followingList.map((f) => f.followingId);
+      conditions.push({
+        userId: { in: followingIds },
+      });
+    }
 
     if (tag && tag.toLowerCase() !== 'all') {
       conditions.push({
@@ -162,12 +179,12 @@ router.get('/', async (req, res) => {
       include: {
         user: true,
         tags: { include: { tag: true } },
-        likes: currentUser ? { where: { userId: currentUser.id } } : false,
+        likes: currentUserId ? { where: { userId: currentUserId } } : false,
       },
       orderBy,
     });
 
-    res.json({ photos: photos.map((p) => formatPhoto(p, currentUser?.id)) });
+    res.json({ photos: photos.map((p) => formatPhoto(p, currentUserId)) });
   } catch (error) {
     console.error('Fetch photos error:', error);
     res.status(500).json({ error: 'Failed to retrieve photos' });
@@ -178,17 +195,18 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const currentUser = extractUser(req);
+    const currentUserId = currentUser ? (currentUser.id || currentUser.userId) : null;
     const photo = await prisma.photo.findUnique({
       where: { id: req.params.id },
       include: {
         user: true,
         tags: { include: { tag: true } },
-        likes: currentUser ? { where: { userId: currentUser.id } } : false,
+        likes: currentUserId ? { where: { userId: currentUserId } } : false,
       },
     });
 
     if (!photo) return res.status(404).json({ error: 'Photo not found' });
-    res.json({ photo: formatPhoto(photo, currentUser?.id) });
+    res.json({ photo: formatPhoto(photo, currentUserId) });
   } catch (error) {
     console.error('Fetch photo error:', error);
     res.status(500).json({ error: 'Failed to retrieve photo' });
@@ -199,6 +217,7 @@ router.get('/:id', async (req, res) => {
 router.get('/:id/related', async (req, res) => {
   try {
     const currentUser = extractUser(req);
+    const currentUserId = currentUser ? (currentUser.id || currentUser.userId) : null;
     const photo = await prisma.photo.findUnique({
       where: { id: req.params.id },
       include: {
@@ -226,7 +245,7 @@ router.get('/:id/related', async (req, res) => {
       include: {
         user: true,
         tags: { include: { tag: true } },
-        likes: currentUser ? { where: { userId: currentUser.id } } : false,
+        likes: currentUserId ? { where: { userId: currentUserId } } : false,
       },
       orderBy: { likesCount: 'desc' },
     });
@@ -242,14 +261,14 @@ router.get('/:id/related', async (req, res) => {
         include: {
           user: true,
           tags: { include: { tag: true } },
-          likes: currentUser ? { where: { userId: currentUser.id } } : false,
+          likes: currentUserId ? { where: { userId: currentUserId } } : false,
         },
         orderBy: { viewsCount: 'desc' },
       });
       relatedPhotos = [...relatedPhotos, ...additional];
     }
 
-    res.json({ photos: relatedPhotos.map((p) => formatPhoto(p, currentUser?.id)) });
+    res.json({ photos: relatedPhotos.map((p) => formatPhoto(p, currentUserId)) });
   } catch (error) {
     console.error('Fetch related photos error:', error);
     res.status(500).json({ error: 'Failed to retrieve related photos' });
@@ -428,7 +447,7 @@ router.post('/:id/like', async (req, res) => {
     }
 
     const photoId = req.params.id;
-    const userId = currentUser.id;
+    const userId = currentUser.id || currentUser.userId;
 
     // Check if user already liked this photo
     const existingLike = await prisma.like.findUnique({
@@ -485,7 +504,7 @@ router.get('/:id/download', async (req, res) => {
     await prisma.download.create({
       data: {
         photoId: photo.id,
-        userId: currentUser?.id || null,
+        userId: (currentUser?.id || currentUser?.userId) || null,
         resolution: req.query.size || 'original',
       },
     });
@@ -494,6 +513,110 @@ router.get('/:id/download', async (req, res) => {
   } catch (error) {
     console.error('Download tracking error:', error);
     res.status(500).json({ error: 'Failed to process download' });
+  }
+});
+
+// GET /api/photos/:id/comments - Retrieve comments for a photo
+router.get('/:id/comments', async (req, res) => {
+  try {
+    const comments = await prisma.comment.findMany({
+      where: { photoId: req.params.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json({ comments });
+  } catch (error) {
+    console.error('Fetch comments error:', error);
+    res.status(500).json({ error: 'Failed to retrieve comments' });
+  }
+});
+
+// POST /api/photos/:id/comments - Post a new comment
+router.post('/:id/comments', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Comment content cannot be empty' });
+    }
+
+    const photoId = req.params.id;
+    const photo = await prisma.photo.findUnique({ where: { id: photoId } });
+    if (!photo) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+
+    const userId = req.user.id || req.user.userId;
+    const comment = await prisma.comment.create({
+      data: {
+        photoId,
+        userId,
+        content: content.trim(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({ comment });
+  } catch (error) {
+    console.error('Create comment error:', error);
+    res.status(500).json({ error: 'Failed to post comment' });
+  }
+});
+
+// DELETE /api/photos/:id/comments/:commentId - Delete comment (author, photo owner, or admin)
+router.delete('/:id/comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { id: photoId, commentId } = req.params;
+    const userId = req.user.id || req.user.userId;
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment || comment.photoId !== photoId) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    const photo = await prisma.photo.findUnique({
+      where: { id: photoId },
+      select: { userId: true },
+    });
+
+    const isCommentAuthor = comment.userId === userId;
+    const isPhotoOwner = photo && photo.userId === userId;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isCommentAuthor && !isPhotoOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to delete this comment' });
+    }
+
+    await prisma.comment.delete({
+      where: { id: commentId },
+    });
+
+    res.json({ success: true, message: 'Comment deleted successfully' });
+  } catch (error) {
+    console.error('Delete comment error:', error);
+    res.status(500).json({ error: 'Failed to delete comment' });
   }
 });
 

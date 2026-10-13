@@ -95,17 +95,20 @@ flowchart TD
 ```
 
 ### Tasks:
-- [ ] **Follow System**:
-  - `Follow` model in SQLite (`followerId`, `followingId`, `createdAt`).
-  - Endpoints: `POST /api/users/:id/follow`, `GET /api/users/:id/followers`.
-  - Connect the "Follow Creator" button on `ProfilePage.js` to live database records.
-- [ ] **Dedicated "Following Feed"**:
-  - Homepage tab switcher: `Explore (Global)` vs `Following (My Network)`.
-- [ ] **Comments & Gear Discussions**:
-  - `Comment` model (`id`, `photoId`, `userId`, `content`, `createdAt`).
-  - Comment thread component under photo details in `PhotoModal.js`.
+- [x] **Follow System**:
+  - [x] `Follow` model in SQLite / Prisma schema (`followerId`, `followingId`, `createdAt`).
+  - [x] Endpoints: `POST /api/users/:id/follow` (toggle follow/unfollow), `GET /api/users/:username` (computes live `followersCount`, `followingCount`, and `isFollowing`).
+  - [x] Connect the "Follow Creator" button on `ProfilePage.js` to live database records with follower/following stats counters.
+- [x] **Dedicated "Following Feed"**:
+  - [x] Homepage tab switcher: `Explore (Global)` vs `Following (My Network)`.
+  - [x] Backend `GET /api/photos?feed=following` querying followed creators' photos.
+  - [x] Friendly empty states for unauthenticated visitors and new users.
+- [x] **Comments & Gear Discussions**:
+  - [x] `Comment` model (`id`, `photoId`, `userId`, `content`, `createdAt`, `updatedAt`).
+  - [x] Backend endpoints: `GET /api/photos/:id/comments`, `POST /api/photos/:id/comments`, `DELETE /api/photos/:id/comments/:commentId`.
+  - [x] Comment thread component under photo details in `PhotoModal.js` with instant comment posting, creator avatars, and owner deletion.
 - [ ] **Live Notification Center**:
-  - Notification bell icon in `Navbar.js` with dropdown alerts for likes, downloads, and follows.
+  - [ ] Notification bell icon in `Navbar.js` with dropdown alerts for likes, downloads, and follows.
 
 ---
 
@@ -135,17 +138,17 @@ flowchart TD
 
 ---
 
-## 🌐 Milestone 6: Production Hardening & Cloud Deployment
+## 🌐 Milestone 6: Production Hardening & Cloud Deployment (Live)
 *Goal: Ship the production build with enterprise security and high availability.*
 
 ### Tasks:
 - [ ] **Security & OAuth**:
   - 1-click Google / GitHub OAuth login.
   - Rate limiting on API routes and secure HTTP headers (Helmet).
-- [ ] **Production Build**:
-  - Configure production environment variables (`.env.production`).
-  - Frontend deployment pipeline (Vercel / Netlify).
-  - Backend and database deployment (Render / Railway / Fly.io).
+- [x] **Production Build & Cloud Deployments**:
+  - [x] Production environment variables configured (`REACT_APP_API_URL`).
+  - [x] Frontend deployment pipeline live on Vercel: `https://hashtag-photos.vercel.app`
+  - [x] Backend REST API and SQLite service live on Render: `https://hashtag-api-622m.onrender.com`
 
 ---
 
