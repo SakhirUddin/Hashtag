@@ -173,8 +173,15 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'Photo title is required' });
     }
 
-    // Default to first user or community creator
-    let author = await prisma.user.findFirst();
+    // Extract authenticated user or fallback to first author
+    let author = null;
+    const userPayload = extractUser(req);
+    if (userPayload && userPayload.userId) {
+      author = await prisma.user.findUnique({ where: { id: userPayload.userId } });
+    }
+    if (!author) {
+      author = await prisma.user.findFirst();
+    }
     if (!author) {
       author = await prisma.user.create({
         data: {
@@ -211,36 +218,78 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       },
     });
 
-    // Parse and associate tags
+    // Parse and associate tags safely without unique constraint collisions
     if (hashtags) {
-      const parsedTags = hashtags
-        .split(/[,\s]+/)
-        .map((t) => t.replace(/^#/, '').trim())
-        .filter(Boolean);
+      try {
+        const rawTags = hashtags
+          .split(/[,\s]+/)
+          .map((t) => t.replace(/^#/, '').trim())
+          .filter(Boolean);
 
-      for (const tagName of parsedTags) {
-        let tag = await prisma.tag.findUnique({ where: { name: tagName } });
-        if (!tag) {
-          tag = await prisma.tag.create({
-            data: {
-              name: tagName,
-              slug: tagName.toLowerCase(),
-              photoCount: 1,
-            },
-          });
-        } else {
-          await prisma.tag.update({
-            where: { id: tag.id },
-            data: { photoCount: { increment: 1 } },
-          });
+        // Deduplicate tags by slug
+        const uniqueTagsMap = new Map();
+        for (const raw of rawTags) {
+          const slug = raw.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+          if (!slug) continue;
+          if (!uniqueTagsMap.has(slug)) {
+            const displayName = raw.charAt(0).toUpperCase() + raw.slice(1);
+            uniqueTagsMap.set(slug, { name: displayName, slug });
+          }
         }
 
-        await prisma.photoTag.create({
-          data: {
-            photoId: newPhoto.id,
-            tagId: tag.id,
-          },
-        });
+        for (const [slug, tagInfo] of uniqueTagsMap.entries()) {
+          try {
+            // Find existing tag by unique slug first, then by name
+            let tag = await prisma.tag.findUnique({ where: { slug } });
+            if (!tag) {
+              tag = await prisma.tag.findUnique({ where: { name: tagInfo.name } });
+            }
+
+            if (!tag) {
+              try {
+                tag = await prisma.tag.create({
+                  data: {
+                    name: tagInfo.name,
+                    slug: slug,
+                    photoCount: 1,
+                  },
+                });
+              } catch (createErr) {
+                // In case of a race condition or casing collision, query again
+                tag = await prisma.tag.findFirst({
+                  where: {
+                    OR: [{ slug }, { name: tagInfo.name }],
+                  },
+                });
+              }
+            } else {
+              await prisma.tag.update({
+                where: { id: tag.id },
+                data: { photoCount: { increment: 1 } },
+              });
+            }
+
+            if (tag) {
+              await prisma.photoTag.upsert({
+                where: {
+                  photoId_tagId: {
+                    photoId: newPhoto.id,
+                    tagId: tag.id,
+                  },
+                },
+                create: {
+                  photoId: newPhoto.id,
+                  tagId: tag.id,
+                },
+                update: {},
+              });
+            }
+          } catch (tagErr) {
+            console.warn(`Could not link tag ${slug}:`, tagErr.message);
+          }
+        }
+      } catch (parseErr) {
+        console.warn('Error parsing tags:', parseErr.message);
       }
     }
 
