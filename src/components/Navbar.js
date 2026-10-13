@@ -1,16 +1,94 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, UploadCloud, Menu, X, LogOut, ShieldCheck, Folder } from 'lucide-react';
-import { getCurrentUser, logout } from '../services/api';
+import { 
+  Search, UploadCloud, Menu, X, LogOut, ShieldCheck, 
+  Folder, Bell, Heart, MessageSquare, UserCheck, Briefcase, CheckCheck 
+} from 'lucide-react';
+import { 
+  getCurrentUser, logout, 
+  getNotificationsApi, markNotificationReadApi, markAllNotificationsReadApi 
+} from '../services/api';
 
 export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
+  
+  // Notification center state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     setUser(getCurrentUser());
   }, []);
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const data = await getNotificationsApi();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.warn('Failed to load notifications:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadNotifications();
+      const interval = setInterval(loadNotifications, 25000); // Check for live notifications
+      return () => clearInterval(interval);
+    }
+  }, [user, loadNotifications]);
+
+  // Click outside to dismiss notifications popover
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    if (notificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notificationsOpen]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsReadApi();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Failed to mark all read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    try {
+      if (!notif.isRead) {
+        await markNotificationReadApi(notif.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+        );
+        setUnreadCount((c) => Math.max(0, c - 1));
+      }
+      setNotificationsOpen(false);
+
+      if (notif.type === 'follow' && notif.actor) {
+        navigate(`/profile/${notif.actor.username}`);
+      } else if (notif.type === 'inquiry') {
+        navigate(`/profile/${user?.username}`);
+      } else if (notif.photo) {
+        navigate(`/?q=${encodeURIComponent(notif.photo.title || '')}`);
+      }
+    } catch (err) {
+      console.error('Error opening notification:', err);
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -22,6 +100,8 @@ export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
   const handleLogout = () => {
     logout();
     setUser(null);
+    setNotifications([]);
+    setUnreadCount(0);
     navigate('/');
   };
 
@@ -94,6 +174,108 @@ export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
                     <span>Admin</span>
                   </Link>
                 )}
+
+                {/* Notifications Bell Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setNotificationsOpen(!notificationsOpen)}
+                    className="relative p-2 text-gray-600 hover:text-black rounded-full hover:bg-gray-100 transition-colors"
+                    title="Notifications"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+                    )}
+                  </button>
+
+                  {/* Dropdown Popover */}
+                  {notificationsOpen && (
+                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 z-50 animate-scaleIn">
+                      {/* Popover Header */}
+                      <div className="px-4 pb-2.5 border-b border-gray-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-gray-800" />
+                          <h4 className="font-extrabold text-sm text-gray-900">Notifications</h4>
+                          {unreadCount > 0 && (
+                            <span className="bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              {unreadCount} new
+                            </span>
+                          )}
+                        </div>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={handleMarkAllRead}
+                            className="text-[11px] font-semibold text-gray-500 hover:text-black flex items-center gap-1 hover:underline"
+                          >
+                            <CheckCheck className="w-3.5 h-3.5" />
+                            <span>Mark all read</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Popover List */}
+                      <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                        {notifications.length === 0 ? (
+                          <div className="py-8 text-center text-gray-400">
+                            <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p className="text-xs font-semibold">No notifications yet</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">We'll alert you when creators interact with you</p>
+                          </div>
+                        ) : (
+                          notifications.map((notif) => (
+                            <div
+                              key={notif.id}
+                              onClick={() => handleNotificationClick(notif)}
+                              className={`px-4 py-3 flex items-start gap-3 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                !notif.isRead ? 'bg-blue-50/40' : ''
+                              }`}
+                            >
+                              <div className="relative flex-shrink-0 mt-0.5">
+                                <img
+                                  src={notif.actor?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${notif.actor?.username || 'user'}`}
+                                  alt=""
+                                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                                />
+                                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-white shadow-sm border border-gray-100">
+                                  {notif.type === 'like' && <Heart className="w-2.5 h-2.5 text-red-500 fill-current" />}
+                                  {notif.type === 'comment' && <MessageSquare className="w-2.5 h-2.5 text-blue-500 fill-current" />}
+                                  {notif.type === 'follow' && <UserCheck className="w-2.5 h-2.5 text-green-500" />}
+                                  {notif.type === 'inquiry' && <Briefcase className="w-2.5 h-2.5 text-purple-600" />}
+                                </span>
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-900 leading-snug">
+                                  <strong className="font-bold">{notif.actor?.displayName || notif.actor?.username || 'Someone'}</strong>{' '}
+                                  {notif.type === 'like' && 'liked your photo'}
+                                  {notif.type === 'comment' && `commented: "${notif.content || ''}"`}
+                                  {notif.type === 'follow' && 'started following your gallery'}
+                                  {notif.type === 'inquiry' && `sent a booking inquiry: ${notif.content || ''}`}
+                                </p>
+                                <span className="text-[10px] text-gray-400 block mt-1">
+                                  {new Date(notif.createdAt).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+
+                              {notif.photo && (
+                                <img
+                                  src={notif.photo.thumbnailUrl || notif.photo.imageUrl}
+                                  alt=""
+                                  className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-gray-200"
+                                />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <Link
                   to={`/profile/${user.username}`}
                   title="View your profile"

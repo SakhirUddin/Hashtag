@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { authenticateToken } = require('./auth');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'hashtag-secret-key';
@@ -270,6 +271,13 @@ router.post('/:id/follow', authenticateToken, async (req, res) => {
         },
       });
       following = true;
+
+      // Trigger notification for the creator
+      await createNotification({
+        userId: targetUser.id,
+        actorId: followerId,
+        type: 'follow',
+      });
     }
 
     const followersCount = await prisma.follow.count({

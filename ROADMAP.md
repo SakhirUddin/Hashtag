@@ -107,8 +107,10 @@ flowchart TD
   - [x] `Comment` model (`id`, `photoId`, `userId`, `content`, `createdAt`, `updatedAt`).
   - [x] Backend endpoints: `GET /api/photos/:id/comments`, `POST /api/photos/:id/comments`, `DELETE /api/photos/:id/comments/:commentId`.
   - [x] Comment thread component under photo details in `PhotoModal.js` with instant comment posting, creator avatars, and owner deletion.
-- [ ] **Live Notification Center**:
-  - [ ] Notification bell icon in `Navbar.js` with dropdown alerts for likes, downloads, and follows.
+- [x] **Live Notification Center**:
+  - [x] `Notification` model in SQLite / Prisma schema (`id`, `userId`, `actorId`, `type`, `photoId`, `content`, `isRead`, `createdAt`).
+  - [x] Notification bell icon in `Navbar.js` with real-time unread badge counter, auto-polling, and dropdown alerts for likes, comments, follows, and booking leads.
+  - [x] 1-click "Mark all as read" and click-through navigation to creator profiles / photos.
 
 ---
 
@@ -116,13 +118,14 @@ flowchart TD
 *Goal: Provide tangible incentives and income opportunities for photographers.*
 
 ### Tasks:
-- [ ] **"Hire Photographer" Booking Modal**:
-  - Clean booking request modal on creator profiles with shoot date, location, project type, and budget.
-  - Generates direct lead notifications for the creator.
+- [x] **"Hire Photographer" Booking Modal**:
+  - [x] `BookingInquiry` model in SQLite / Prisma schema (`id`, `creatorId`, `senderId`, `senderName`, `senderEmail`, `projectType`, `shootDate`, `location`, `budget`, `message`, `status`).
+  - [x] Clean booking inquiry request modal (`HireCreatorModal.js`) on creator profiles (`ProfilePage.js`) with date picker, project type selector, budget, location, and creative brief.
+  - [x] Generates direct real-time lead notifications for the creator.
 - [ ] **Creator Tip Jar ("Buy Me a Coffee")**:
-  - Optional creator donation link (BuyMeACoffee, Stripe, PayPal) displayed on profile and photo download screens.
+  - [ ] Optional creator donation link (BuyMeACoffee, Stripe, PayPal) displayed on profile and photo download screens.
 - [ ] **Creator Analytics Studio**:
-  - Private insights dashboard for photographers: 30-day views graph, top downloaded photos, and geographic reach.
+  - [ ] Private insights dashboard for photographers: 30-day views graph, top downloaded photos, and geographic reach.
 
 ---
 

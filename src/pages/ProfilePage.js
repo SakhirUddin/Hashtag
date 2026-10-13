@@ -4,13 +4,14 @@ import {
   Heart, Download, Eye, Camera, Calendar, MapPin, 
   Share2, Edit3, UploadCloud, Check, ShieldCheck, 
   Sparkles, Trash2, ArrowLeft, UserCheck, Plus,
-  Folder, Lock, Globe
+  Folder, Lock, Globe, Briefcase
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PhotoModal from '../components/PhotoModal';
 import UploadModal from '../components/UploadModal';
 import AddToCollectionModal from '../components/AddToCollectionModal';
+import HireCreatorModal from '../components/HireCreatorModal';
 import { 
   getUserProfile, updateUserProfile, deleteUserPhoto, 
   getUserCollections, createCollectionApi,
@@ -36,6 +37,7 @@ export default function ProfilePage() {
   const [saveModalPhoto, setSaveModalPhoto] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [hireModalOpen, setHireModalOpen] = useState(false);
   const [shareToast, setShareToast] = useState(false);
 
   // Collections state
@@ -414,12 +416,13 @@ export default function ProfilePage() {
                     )}
                   </button>
 
-                  <a
-                    href={`mailto:${profile.email}`}
-                    className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs sm:text-sm font-bold px-4 py-2.5 rounded-full transition-colors"
+                  <button
+                    onClick={() => setHireModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-full transition-all shadow-sm active:scale-95"
                   >
-                    <span>Hire Me</span>
-                  </a>
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Book Creator</span>
+                  </button>
                 </>
               )}
             </div>
@@ -899,6 +902,15 @@ export default function ProfilePage() {
           isOpen={Boolean(saveModalPhoto)}
           photo={saveModalPhoto}
           onClose={() => setSaveModalPhoto(null)}
+        />
+      )}
+
+      {/* Book / Hire Creator Inquiry Modal */}
+      {hireModalOpen && (
+        <HireCreatorModal
+          isOpen={hireModalOpen}
+          onClose={() => setHireModalOpen(false)}
+          creator={profile}
         />
       )}
     </div>

@@ -9,6 +9,8 @@ const tagsRouter = require('./routes/tags');
 const adminRouter = require('./routes/admin');
 const usersRouter = require('./routes/users');
 const collectionsRouter = require('./routes/collections');
+const { router: notificationsRouter } = require('./routes/notifications');
+const inquiriesRouter = require('./routes/inquiries');
 
 const app = express();
 app.enable('trust proxy');
@@ -34,6 +36,8 @@ app.use('/api/tags', tagsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/collections', collectionsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/inquiries', inquiriesRouter);
 
 // Root & Health check endpoints
 app.get('/', (req, res) => {

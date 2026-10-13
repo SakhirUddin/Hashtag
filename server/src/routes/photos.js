@@ -5,6 +5,7 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const { authenticateToken } = require('./auth');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'hashtag-secret-key';
@@ -479,10 +480,18 @@ router.post('/:id/like', async (req, res) => {
       const photo = await prisma.photo.update({
         where: { id: photoId },
         data: { likesCount: { increment: 1 } },
-        select: { likesCount: true },
+        select: { likesCount: true, userId: true },
       });
       liked = true;
       updatedLikes = photo.likesCount;
+
+      // Trigger notification for photo owner
+      await createNotification({
+        userId: photo.userId,
+        actorId: userId,
+        type: 'like',
+        photoId,
+      });
     }
 
     res.json({ success: true, liked, likes: updatedLikes });
@@ -573,6 +582,15 @@ router.post('/:id/comments', authenticateToken, async (req, res) => {
           },
         },
       },
+    });
+
+    // Trigger notification for photo owner
+    await createNotification({
+      userId: photo.userId,
+      actorId: userId,
+      type: 'comment',
+      photoId,
+      content: content.trim().substring(0, 80),
     });
 
     res.status(201).json({ comment });

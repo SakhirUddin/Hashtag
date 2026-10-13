@@ -371,3 +371,69 @@ export async function deletePhotoComment(photoId, commentId) {
   return await response.json();
 }
 
+// Notifications APIs
+export async function getNotificationsApi() {
+  const response = await fetch(`${API_BASE}/notifications`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) return { notifications: [], unreadCount: 0 };
+  return await response.json();
+}
+
+export async function markNotificationReadApi(notificationId) {
+  const response = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) return null;
+  return await response.json();
+}
+
+export async function markAllNotificationsReadApi() {
+  const response = await fetch(`${API_BASE}/notifications/read-all`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) return null;
+  return await response.json();
+}
+
+// Booking Inquiries APIs (Milestone 4: Creator Economy)
+export async function sendBookingInquiryApi(inquiryData) {
+  const response = await fetch(`${API_BASE}/inquiries`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(inquiryData),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to submit booking inquiry');
+  }
+  return await response.json();
+}
+
+export async function getBookingInquiriesApi() {
+  const response = await fetch(`${API_BASE}/inquiries`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) return { inquiries: [] };
+  return await response.json();
+}
+
+export async function updateInquiryStatusApi(inquiryId, status) {
+  const response = await fetch(`${API_BASE}/inquiries/${inquiryId}/status`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) throw new Error('Failed to update inquiry status');
+  return await response.json();
+}
+
+
