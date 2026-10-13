@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, UploadCloud, Menu, X, LogOut, ShieldCheck } from 'lucide-react';
+import { Search, UploadCloud, Menu, X, LogOut, ShieldCheck, Folder } from 'lucide-react';
 import { getCurrentUser, logout } from '../services/api';
 
 export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
@@ -67,6 +67,14 @@ export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
 
           {/* Right Action Buttons */}
           <div className="hidden sm:flex items-center gap-3">
+            <Link
+              to="/collections"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-black px-3 py-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Folder className="w-4 h-4 text-gray-500" />
+              <span>Collections</span>
+            </Link>
+
             <button
               onClick={onOpenUpload}
               className="inline-flex items-center gap-2 bg-black hover:bg-gray-800 text-white text-sm font-medium px-4 py-2 rounded-full transition-all shadow-sm hover:shadow active:scale-95"
@@ -154,6 +162,15 @@ export default function Navbar({ searchTerm, setSearchTerm, onOpenUpload }) {
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white px-4 pt-3 pb-6 space-y-3">
+          <Link
+            to="/collections"
+            onClick={() => setMobileMenuOpen(false)}
+            className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 rounded-xl font-bold text-sm transition-colors"
+          >
+            <Folder className="w-4 h-4 text-gray-600" />
+            Explore Collections & Moodboards
+          </Link>
+
           <button
             onClick={() => {
               setMobileMenuOpen(false);

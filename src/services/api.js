@@ -211,3 +211,95 @@ export async function deleteUserPhoto(photoId) {
   if (!response.ok) throw new Error('Failed to delete photo');
   return await response.json();
 }
+
+// Collections APIs
+export async function getCollections() {
+  const response = await fetch(`${API_BASE}/collections`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch collections');
+  const data = await response.json();
+  return data.collections;
+}
+
+export async function getCollectionDetail(collectionId) {
+  const response = await fetch(`${API_BASE}/collections/${collectionId}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch collection details');
+  }
+  const data = await response.json();
+  return data.collection;
+}
+
+export async function getMyCollectionsStatus(photoId) {
+  const params = photoId ? `?photoId=${encodeURIComponent(photoId)}` : '';
+  const response = await fetch(`${API_BASE}/collections/my/status${params}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch my collections');
+  const data = await response.json();
+  return data.collections;
+}
+
+export async function getUserCollections(username) {
+  const response = await fetch(`${API_BASE}/collections/user/${encodeURIComponent(username)}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to fetch user collections');
+  const data = await response.json();
+  return data;
+}
+
+export async function createCollectionApi({ title, description, isPrivate }) {
+  const response = await fetch(`${API_BASE}/collections`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, description, isPrivate }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create collection');
+  }
+  const data = await response.json();
+  return data.collection;
+}
+
+export async function addPhotoToCollectionApi(collectionId, photoId) {
+  const response = await fetch(`${API_BASE}/collections/${collectionId}/photos`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ photoId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to add photo to collection');
+  }
+  return await response.json();
+}
+
+export async function removePhotoFromCollectionApi(collectionId, photoId) {
+  const response = await fetch(`${API_BASE}/collections/${collectionId}/photos/${photoId}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to remove photo from collection');
+  return await response.json();
+}
+
+export async function deleteCollectionApi(collectionId) {
+  const response = await fetch(`${API_BASE}/collections/${collectionId}`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!response.ok) throw new Error('Failed to delete collection');
+  return await response.json();
+}

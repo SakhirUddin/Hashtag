@@ -8,6 +8,7 @@ const photosRouter = require('./routes/photos');
 const tagsRouter = require('./routes/tags');
 const adminRouter = require('./routes/admin');
 const usersRouter = require('./routes/users');
+const collectionsRouter = require('./routes/collections');
 
 const app = express();
 app.enable('trust proxy');
@@ -32,6 +33,7 @@ app.use('/api/photos', photosRouter);
 app.use('/api/tags', tagsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/collections', collectionsRouter);
 
 // Root & Health check endpoints
 app.get('/', (req, res) => {
@@ -45,6 +47,7 @@ app.get('/', (req, res) => {
       tags: '/api/tags',
       auth: '/api/auth',
       users: '/api/users',
+      collections: '/api/collections',
       admin: '/api/admin',
     },
   });

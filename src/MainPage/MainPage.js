@@ -5,6 +5,7 @@ import HashtagBar from '../components/HashtagBar';
 import MasonryGrid from '../components/MasonryGrid';
 import PhotoModal from '../components/PhotoModal';
 import UploadModal from '../components/UploadModal';
+import AddToCollectionModal from '../components/AddToCollectionModal';
 import Footer from '../components/Footer';
 import { getPhotos } from '../services/api';
 import { MOCK_PHOTOS } from '../data/mockPhotos';
@@ -16,6 +17,7 @@ export default function MainPage() {
   const [activeTag, setActiveTag] = useState('All');
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [saveModalPhoto, setSaveModalPhoto] = useState(null);
 
   // Fetch photos from backend API
   const loadPhotos = useCallback(async (tag, query) => {
@@ -132,6 +134,7 @@ export default function MainPage() {
             photos={photos}
             onPhotoClick={(photo) => setSelectedPhoto(photo)}
             onPhotoUpdate={handlePhotoUpdate}
+            onSaveToCollection={(photo) => setSaveModalPhoto(photo)}
           />
         )}
       </main>
@@ -145,6 +148,7 @@ export default function MainPage() {
         onClose={() => setSelectedPhoto(null)}
         onSelectHashtag={handleSelectHashtag}
         onPhotoUpdate={handlePhotoUpdate}
+        onSaveToCollection={(photo) => setSaveModalPhoto(photo)}
       />
 
       {/* Creator Upload Modal */}
@@ -153,6 +157,15 @@ export default function MainPage() {
         onClose={() => setUploadModalOpen(false)}
         onUploadSuccess={handleUploadSuccess}
       />
+
+      {/* Add To Collection Modal */}
+      {saveModalPhoto && (
+        <AddToCollectionModal
+          isOpen={Boolean(saveModalPhoto)}
+          photo={saveModalPhoto}
+          onClose={() => setSaveModalPhoto(null)}
+        />
+      )}
     </div>
   );
 }

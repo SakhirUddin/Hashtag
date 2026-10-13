@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Heart, Download, Bookmark, Check } from 'lucide-react';
 import { likePhotoApi, trackDownloadApi, getCurrentUser } from '../services/api';
 
-export default function MasonryGrid({ photos, onPhotoClick, onPhotoUpdate }) {
+export default function MasonryGrid({ photos, onPhotoClick, onPhotoUpdate, onSaveToCollection }) {
   const [downloadingId, setDownloadingId] = useState(null);
   const navigate = useNavigate();
 
@@ -111,9 +111,12 @@ export default function MasonryGrid({ photos, onPhotoClick, onPhotoUpdate }) {
                 </button>
 
                 <button
-                  onClick={(e) => e.stopPropagation()}
-                  title="Bookmark"
-                  className="p-2.5 rounded-full bg-white/85 hover:bg-white text-gray-800 backdrop-blur-md transition-all active:scale-90 shadow-md"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSaveToCollection) onSaveToCollection(photo);
+                  }}
+                  title="Save to Collection"
+                  className="p-2.5 rounded-full bg-white/85 hover:bg-white text-gray-800 backdrop-blur-md transition-all active:scale-90 shadow-md hover:text-black"
                 >
                   <Bookmark className="w-4 h-4" />
                 </button>

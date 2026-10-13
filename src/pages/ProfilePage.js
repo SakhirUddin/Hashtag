@@ -3,14 +3,17 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Heart, Download, Eye, Camera, Calendar, MapPin, 
   Share2, Edit3, UploadCloud, Check, ShieldCheck, 
-  Sparkles, Trash2, ArrowLeft, UserCheck, Plus
+  Sparkles, Trash2, ArrowLeft, UserCheck, Plus,
+  Folder, Lock, Globe
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import PhotoModal from '../components/PhotoModal';
 import UploadModal from '../components/UploadModal';
+import AddToCollectionModal from '../components/AddToCollectionModal';
 import { 
   getUserProfile, updateUserProfile, deleteUserPhoto, 
+  getUserCollections, createCollectionApi,
   getCurrentUser
 } from '../services/api';
 
@@ -24,14 +27,23 @@ export default function ProfilePage() {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('photos'); // 'photos' | 'likes' | 'stats'
+  const [activeTab, setActiveTab] = useState('photos'); // 'photos' | 'likes' | 'collections'
   
   // Modals & Interactivity
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [saveModalPhoto, setSaveModalPhoto] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [shareToast, setShareToast] = useState(false);
+
+  // Collections state
+  const [collections, setCollections] = useState([]);
+  const [newColModalOpen, setNewColModalOpen] = useState(false);
+  const [newColTitle, setNewColTitle] = useState('');
+  const [newColDesc, setNewColDesc] = useState('');
+  const [newColPrivate, setNewColPrivate] = useState(false);
+  const [creatingCol, setCreatingCol] = useState(false);
   
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -58,6 +70,14 @@ export default function ProfilePage() {
       setEditName(data.profile.displayName);
       setEditBio(data.profile.bio || '');
       setEditAvatar(data.profile.avatarUrl || '');
+
+      // Load user collections
+      try {
+        const colData = await getUserCollections(targetUsername);
+        setCollections(colData.collections || []);
+      } catch (colErr) {
+        console.warn('Failed to fetch user collections:', colErr);
+      }
     } catch (err) {
       setError(err.message || 'User profile not found.');
     } finally {
@@ -68,6 +88,30 @@ export default function ProfilePage() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  const handleCreateCollection = async (e) => {
+    e.preventDefault();
+    if (!newColTitle.trim()) return;
+
+    setCreatingCol(true);
+    try {
+      const newCol = await createCollectionApi({
+        title: newColTitle.trim(),
+        description: newColDesc.trim() || null,
+        isPrivate: newColPrivate,
+      });
+
+      setCollections((prev) => [newCol, ...prev]);
+      setNewColModalOpen(false);
+      setNewColTitle('');
+      setNewColDesc('');
+      setNewColPrivate(false);
+    } catch (err) {
+      alert(err.message || 'Failed to create collection');
+    } finally {
+      setCreatingCol(false);
+    }
+  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -400,6 +444,18 @@ export default function ProfilePage() {
               <Heart className="w-4 h-4" />
               <span>Favorites & Likes ({likedPhotos.length})</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('collections')}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'collections'
+                  ? 'bg-black text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Folder className="w-4 h-4" />
+              <span>Collections ({collections.length})</span>
+            </button>
           </div>
 
           {/* Tab Content Display */}
@@ -478,7 +534,7 @@ export default function ProfilePage() {
                   ))}
                 </div>
               )
-            ) : (
+            ) : activeTab === 'likes' ? (
               likedPhotos.length === 0 ? (
                 <div className="py-20 text-center border-2 border-dashed border-gray-200 rounded-3xl">
                   <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
@@ -521,6 +577,109 @@ export default function ProfilePage() {
                   ))}
                 </div>
               )
+            ) : (
+              /* activeTab === 'collections' */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {isOwnProfile && (
+                  <button
+                    onClick={() => setNewColModalOpen(true)}
+                    className="h-64 rounded-3xl border-2 border-dashed border-gray-300 hover:border-black p-6 flex flex-col items-center justify-center gap-3 text-gray-500 hover:text-black transition-all bg-gray-50 hover:bg-white group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Plus className="w-6 h-6" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-sm">Create New Collection</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Organize photos into a moodboard</p>
+                    </div>
+                  </button>
+                )}
+
+                {collections.length === 0 && !isOwnProfile ? (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 rounded-3xl">
+                    <Folder className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <h3 className="text-base font-bold text-gray-800">No public collections</h3>
+                    <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+                      {profile.displayName} has not created any public collections yet.
+                    </p>
+                  </div>
+                ) : (
+                  collections.map((col) => {
+                    const preview = col.previewPhotos || [];
+                    const mainPhoto = preview[0];
+                    const subPhoto1 = preview[1];
+                    const subPhoto2 = preview[2];
+
+                    return (
+                      <Link
+                        key={col.id}
+                        to={`/collections/${col.id}`}
+                        className="group flex flex-col rounded-3xl overflow-hidden border border-gray-100 hover:border-gray-200 hover:shadow-xl transition-all duration-300 bg-white p-3"
+                      >
+                        <div className="h-44 w-full rounded-2xl overflow-hidden bg-gray-100 flex gap-1.5 p-1">
+                          <div className="flex-1 h-full rounded-xl overflow-hidden bg-gray-200">
+                            {mainPhoto ? (
+                              <img
+                                src={mainPhoto.thumbnailUrl || mainPhoto.imageUrl}
+                                alt={mainPhoto.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                <Folder className="w-8 h-8" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="w-24 h-full flex flex-col gap-1.5">
+                            <div className="flex-1 rounded-xl overflow-hidden bg-gray-200">
+                              {subPhoto1 ? (
+                                <img
+                                  src={subPhoto1.thumbnailUrl || subPhoto1.imageUrl}
+                                  alt={subPhoto1.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-100" />
+                              )}
+                            </div>
+                            <div className="flex-1 rounded-xl overflow-hidden bg-gray-200">
+                              {subPhoto2 ? (
+                                <img
+                                  src={subPhoto2.thumbnailUrl || subPhoto2.imageUrl}
+                                  alt={subPhoto2.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-100" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-3 pt-3 flex items-center justify-between">
+                          <div className="min-w-0 pr-2">
+                            <h4 className="font-bold text-gray-900 text-sm leading-tight truncate group-hover:text-blue-600 transition-colors">
+                              {col.title}
+                            </h4>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {col.photoCount} {col.photoCount === 1 ? 'photo' : 'photos'}
+                            </p>
+                          </div>
+                          {col.isPrivate ? (
+                            <span className="p-1.5 bg-amber-50 text-amber-700 rounded-lg text-xs" title="Private collection">
+                              <Lock className="w-3.5 h-3.5" />
+                            </span>
+                          ) : (
+                            <span className="p-1.5 bg-gray-50 text-gray-500 rounded-lg text-xs" title="Public collection">
+                              <Globe className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
             )}
           </div>
 
@@ -537,6 +696,7 @@ export default function ProfilePage() {
           photo={selectedPhoto}
           onClose={() => setSelectedPhoto(null)}
           onPhotoUpdate={handlePhotoUpdate}
+          onSaveToCollection={(p) => setSaveModalPhoto(p)}
         />
       )}
 
@@ -620,6 +780,82 @@ export default function ProfilePage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Create New Collection Modal */}
+      {newColModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-gray-100 animate-scaleIn">
+            <h2 className="text-xl font-black text-gray-900 tracking-tight">Create New Collection</h2>
+            <p className="text-xs text-gray-500 mt-1">Organize photos into a themed visual moodboard.</p>
+
+            <form onSubmit={handleCreateCollection} className="mt-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Minimalist Tokyo, Moody Portraits"
+                  value={newColTitle}
+                  onChange={(e) => setNewColTitle(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description (Optional)</label>
+                <textarea
+                  rows="2"
+                  placeholder="Give your moodboard context..."
+                  value={newColDesc}
+                  onChange={(e) => setNewColDesc(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="profilePrivateCol"
+                  checked={newColPrivate}
+                  onChange={(e) => setNewColPrivate(e.target.checked)}
+                  className="w-4 h-4 rounded text-black border-gray-300 focus:ring-black"
+                />
+                <label htmlFor="profilePrivateCol" className="text-xs text-gray-700 flex items-center gap-1.5 cursor-pointer">
+                  <Lock className="w-3.5 h-3.5 text-gray-400" />
+                  <span>Make this collection private (only visible to you)</span>
+                </label>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={creatingCol || !newColTitle.trim()}
+                  className="flex-1 bg-black hover:bg-gray-800 disabled:opacity-50 text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md"
+                >
+                  {creatingCol ? 'Creating...' : 'Create Collection'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewColModalOpen(false)}
+                  className="px-4 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Save to Collection Modal */}
+      {saveModalPhoto && (
+        <AddToCollectionModal
+          isOpen={Boolean(saveModalPhoto)}
+          photo={saveModalPhoto}
+          onClose={() => setSaveModalPhoto(null)}
+        />
       )}
     </div>
   );

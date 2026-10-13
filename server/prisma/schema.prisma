@@ -21,6 +21,7 @@ model User {
   photos       Photo[]
   likes        Like[]
   downloads    Download[]
+  collections  Collection[]
 }
 
 model Photo {
@@ -50,6 +51,7 @@ model Photo {
   tags           PhotoTag[]
   likes          Like[]
   downloads      Download[]
+  collections    CollectionPhoto[]
 }
 
 model Tag {
@@ -88,4 +90,26 @@ model Download {
   photo        Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   downloadedAt DateTime @default(now())
+}
+
+model Collection {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  isPrivate   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  photos      CollectionPhoto[]
+}
+
+model CollectionPhoto {
+  collectionId String
+  photoId      String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  photo        Photo      @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+
+  @@id([collectionId, photoId])
 }

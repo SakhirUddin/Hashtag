@@ -44,21 +44,25 @@ flowchart LR
 ```
 
 ### Tasks:
-- [ ] **Database Schema**:
-  - Add `Collection` model (`id`, `userId`, `title`, `description`, `isPrivate`, `createdAt`, `updatedAt`).
-  - Add `CollectionPhoto` join model (`collectionId`, `photoId`, `addedAt`).
-  - Run Prisma migration (`npx prisma migrate dev`).
-- [ ] **Backend Endpoints (`server/src/routes/collections.js`)**:
-  - `GET /api/collections` (fetch public collections).
-  - `GET /api/collections/:id` (fetch single collection with photos).
-  - `POST /api/collections` (create collection).
-  - `POST /api/collections/:id/photos` (add photo to collection).
-  - `DELETE /api/collections/:id/photos/:photoId` (remove photo from collection).
-  - `DELETE /api/collections/:id` (delete entire collection).
-- [ ] **Frontend Components**:
-  - Build `AddToCollectionModal.js` (triggered by bookmark button on cards and in `PhotoModal`).
-  - Add a **"Collections"** tab to `ProfilePage.js`.
-  - Build `CollectionDetailPage.js` (`/collections/:id`) with collection title, curator name, and photo masonry grid.
+- [x] **Database Schema**:
+  - [x] Add `Collection` model (`id`, `userId`, `title`, `description`, `isPrivate`, `createdAt`, `updatedAt`).
+  - [x] Add `CollectionPhoto` join model (`collectionId`, `photoId`, `addedAt`).
+  - [x] Run Prisma migration / sync (`prisma db push` & `seed.js`).
+- [x] **Backend Endpoints (`server/src/routes/collections.js`)**:
+  - [x] `GET /api/collections` (fetch public collections with previews).
+  - [x] `GET /api/collections/:id` (fetch single collection with photos).
+  - [x] `POST /api/collections` (create collection).
+  - [x] `POST /api/collections/:id/photos` (add photo to collection).
+  - [x] `DELETE /api/collections/:id/photos/:photoId` (remove photo from collection).
+  - [x] `DELETE /api/collections/:id` (delete entire collection).
+  - [x] `GET /api/collections/my/status` (query saved status for quick modal toggling).
+  - [x] `GET /api/collections/user/:username` (fetch user profile moodboards).
+- [x] **Frontend Components**:
+  - [x] Build `AddToCollectionModal.js` (triggered by bookmark button on cards and in `PhotoModal`).
+  - [x] Add a **"Collections"** tab to `ProfilePage.js` with collage cards and "+ New Collection" creator.
+  - [x] Build `CollectionDetailPage.js` (`/collections/:id`) with collection banner, curator profile, and photo masonry grid.
+  - [x] Build `CollectionsExplorePage.js` (`/collections`) to discover community moodboards.
+  - [x] Added "Collections" navigation link to Navbar and mobile drawer.
 
 ---
 

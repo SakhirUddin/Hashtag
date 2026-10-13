@@ -7,6 +7,8 @@ async function main() {
   console.log('Seeding #Hashtag database...');
 
   // Clean existing records
+  await prisma.collectionPhoto.deleteMany({});
+  await prisma.collection.deleteMany({});
   await prisma.download.deleteMany({});
   await prisma.like.deleteMany({});
   await prisma.photoTag.deleteMany({});
@@ -293,6 +295,48 @@ async function main() {
         await prisma.tag.update({
           where: { id: tagMap[tagName] },
           data: { photoCount: { increment: 1 } },
+        });
+      }
+    }
+  }
+
+  // 3. Create Sample Curated Collections
+  const allPhotos = await prisma.photo.findMany({ take: 6 });
+  if (allPhotos.length >= 2) {
+    const col1 = await prisma.collection.create({
+      data: {
+        userId: elena.id,
+        title: 'Atmospheric Earth & Wilds',
+        description: 'Breathtaking landscapes, misty mornings, and untouched wilderness vistas.',
+        isPrivate: false,
+      },
+    });
+
+    for (let i = 0; i < Math.min(allPhotos.length, 4); i++) {
+      await prisma.collectionPhoto.create({
+        data: {
+          collectionId: col1.id,
+          photoId: allPhotos[i].id,
+        },
+      });
+    }
+
+    if (allPhotos.length >= 4) {
+      const col2 = await prisma.collection.create({
+        data: {
+          userId: kenji.id,
+          title: 'Neon Nights & Metropolis',
+          description: 'Rain-slicked asphalt, vibrant neon signage, and late-night urban energy.',
+          isPrivate: false,
+        },
+      });
+
+      for (let i = 2; i < allPhotos.length; i++) {
+        await prisma.collectionPhoto.create({
+          data: {
+            collectionId: col2.id,
+            photoId: allPhotos[i].id,
+          },
         });
       }
     }

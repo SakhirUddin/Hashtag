@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   X, Heart, Download, Share2, MapPin, 
-  Camera, Eye, ArrowDownToLine, Check, ChevronDown 
+  Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark 
 } from 'lucide-react';
 import { 
   likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser 
 } from '../services/api';
 
-export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpdate }) {
+export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpdate, onSaveToCollection }) {
   const [photoData, setPhotoData] = useState(photo);
   const [downloading, setDownloading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -177,6 +177,16 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
               title="Share link"
             >
               {copied ? <Check className="w-4 h-4 text-green-600" /> : <Share2 className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={() => {
+                if (onSaveToCollection) onSaveToCollection(photoData);
+              }}
+              className="p-2.5 rounded-full border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors"
+              title="Save to Collection"
+            >
+              <Bookmark className="w-4 h-4" />
             </button>
 
             {/* Download Dropdown */}
