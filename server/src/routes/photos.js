@@ -75,6 +75,7 @@ const formatPhoto = (photo, currentUserId) => {
       username: photo.user.username,
       avatarUrl: photo.user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
       bio: photo.user.bio,
+      tipUrl: photo.user.tipUrl || null,
     },
     likes: Math.max(0, photo.likesCount),
     downloads: Math.max(0, photo.downloadsCount),

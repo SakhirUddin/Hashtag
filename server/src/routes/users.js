@@ -41,6 +41,7 @@ const formatPhoto = (photo, currentUserId) => {
       username: photo.user.username,
       avatarUrl: photo.user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
       bio: photo.user.bio,
+      tipUrl: photo.user.tipUrl || null,
     },
     likes: Math.max(0, photo.likesCount),
     downloads: Math.max(0, photo.downloadsCount),
@@ -79,6 +80,7 @@ router.get('/:username', async (req, res) => {
         displayName: true,
         avatarUrl: true,
         bio: true,
+        tipUrl: true,
         role: true,
         createdAt: true,
       },
@@ -165,15 +167,16 @@ router.get('/:username', async (req, res) => {
 // PUT /api/users/profile - Update personal profile details
 router.put('/profile', authenticateToken, async (req, res) => {
   try {
-    const { displayName, bio, avatarUrl } = req.body;
-    const userId = req.user.id;
+    const { displayName, bio, avatarUrl, tipUrl } = req.body;
+    const userId = req.user.id || req.user.userId;
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(displayName && { displayName: displayName.trim() }),
-        ...(bio !== undefined && { bio: bio.trim() }),
+        ...(bio !== undefined && { bio: bio ? bio.trim() : null }),
         ...(avatarUrl && { avatarUrl: avatarUrl.trim() }),
+        ...(tipUrl !== undefined && { tipUrl: tipUrl ? tipUrl.trim() : null }),
       },
       select: {
         id: true,
@@ -182,6 +185,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
         displayName: true,
         avatarUrl: true,
         bio: true,
+        tipUrl: true,
         role: true,
         createdAt: true,
       },

@@ -4,7 +4,7 @@ import {
   Heart, Download, Eye, Camera, Calendar, MapPin, 
   Share2, Edit3, UploadCloud, Check, ShieldCheck, 
   Sparkles, Trash2, ArrowLeft, UserCheck, Plus,
-  Folder, Lock, Globe, Briefcase
+  Folder, Lock, Globe, Briefcase, Coffee, TrendingUp, BarChart3, Mail, CheckCircle2, XCircle
 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -15,7 +15,8 @@ import HireCreatorModal from '../components/HireCreatorModal';
 import { 
   getUserProfile, updateUserProfile, deleteUserPhoto, 
   getUserCollections, createCollectionApi,
-  getCurrentUser, followUserApi
+  getCurrentUser, followUserApi,
+  getBookingInquiriesApi, updateInquiryStatusApi
 } from '../services/api';
 
 export default function ProfilePage() {
@@ -47,11 +48,15 @@ export default function ProfilePage() {
   const [newColDesc, setNewColDesc] = useState('');
   const [newColPrivate, setNewColPrivate] = useState(false);
   const [creatingCol, setCreatingCol] = useState(false);
+
+  // Inquiries & Leads state (for creator)
+  const [inquiries, setInquiries] = useState([]);
   
   // Edit form state
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
+  const [editTip, setEditTip] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   const isOwnProfile = currentUser && profileData && (
@@ -73,6 +78,7 @@ export default function ProfilePage() {
       setEditName(data.profile.displayName);
       setEditBio(data.profile.bio || '');
       setEditAvatar(data.profile.avatarUrl || '');
+      setEditTip(data.profile.tipUrl || '');
       setIsFollowing(Boolean(data.profile.isFollowing));
 
       // Load user collections
@@ -82,12 +88,22 @@ export default function ProfilePage() {
       } catch (colErr) {
         console.warn('Failed to fetch user collections:', colErr);
       }
+
+      // If own profile, load incoming booking inquiries
+      if (currentUser && (currentUser.username?.toLowerCase() === targetUsername.toLowerCase() || currentUser.id === data.profile.id)) {
+        try {
+          const inqData = await getBookingInquiriesApi();
+          setInquiries(inqData.inquiries || []);
+        } catch (inqErr) {
+          console.warn('Failed to fetch inquiries:', inqErr);
+        }
+      }
     } catch (err) {
       setError(err.message || 'User profile not found.');
     } finally {
       setLoading(false);
     }
-  }, [targetUsername, navigate]);
+  }, [targetUsername, navigate, currentUser]);
 
   const handleToggleFollow = async () => {
     if (!currentUser) {
@@ -159,6 +175,7 @@ export default function ProfilePage() {
         displayName: editName,
         bio: editBio,
         avatarUrl: editAvatar,
+        tipUrl: editTip.trim() || null,
       });
       setProfileData((prev) => ({
         ...prev,
@@ -167,6 +184,7 @@ export default function ProfilePage() {
           displayName: updated.displayName,
           bio: updated.bio,
           avatarUrl: updated.avatarUrl,
+          tipUrl: updated.tipUrl,
         },
       }));
       setEditModalOpen(false);
@@ -174,6 +192,17 @@ export default function ProfilePage() {
       alert(err.message || 'Failed to update profile');
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleUpdateInquiryStatus = async (inquiryId, newStatus) => {
+    try {
+      await updateInquiryStatusApi(inquiryId, newStatus);
+      setInquiries((prev) =>
+        prev.map((inq) => (inq.id === inquiryId ? { ...inq, status: newStatus } : inq))
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to update inquiry status');
     }
   };
 
@@ -423,6 +452,19 @@ export default function ProfilePage() {
                     <Briefcase className="w-3.5 h-3.5" />
                     <span>Book Creator</span>
                   </button>
+
+                  {profile.tipUrl && (
+                    <a
+                      href={profile.tipUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs sm:text-sm font-bold px-4 py-2.5 rounded-full transition-all shadow-sm active:scale-95"
+                      title="Support this creator with a tip or coffee"
+                    >
+                      <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Tip Jar</span>
+                    </a>
+                  )}
                 </>
               )}
             </div>
@@ -503,6 +545,20 @@ export default function ProfilePage() {
               <Folder className="w-4 h-4" />
               <span>Collections ({collections.length})</span>
             </button>
+
+            {isOwnProfile && (
+              <button
+                onClick={() => setActiveTab('insights')}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                  activeTab === 'insights'
+                    ? 'bg-black text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 text-purple-400" />
+                <span>Insights & Leads ({inquiries.length})</span>
+              </button>
+            )}
           </div>
 
           {/* Tab Content Display */}
@@ -728,6 +784,150 @@ export default function ProfilePage() {
                 )}
               </div>
             )}
+
+            {/* Insights & Leads Tab (Creator Private Analytics & Inquiries) */}
+            {activeTab === 'insights' && isOwnProfile && (
+              <div className="space-y-8 animate-fadeIn">
+                {/* Analytics Metrics Overview Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100/80 p-5 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">Engagement Rate</span>
+                      <TrendingUp className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 mt-2">
+                      {stats.totalViews > 0
+                        ? `${(((stats.totalLikes + stats.totalDownloads) / stats.totalViews) * 100).toFixed(1)}%`
+                        : '0.0%'}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">Interactions per 100 photo views</p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/80 p-5 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Audience Reach</span>
+                      <Eye className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 mt-2">
+                      {(stats.totalViews + stats.totalDownloads).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">Combined views & asset downloads</p>
+                  </div>
+
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-100/80 p-5 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Booking Proposals</span>
+                      <Briefcase className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <p className="text-2xl font-black text-gray-900 mt-2">
+                      {inquiries.length}
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {inquiries.filter((i) => i.status === 'pending').length} pending client reviews
+                    </p>
+                  </div>
+                </div>
+
+                {/* Client Booking Inquiries List */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Incoming Shoot Proposals & Inquiries</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Direct commercial and project inquiries received from the "Book Creator" button
+                      </p>
+                    </div>
+                  </div>
+
+                  {inquiries.length === 0 ? (
+                    <div className="py-12 text-center border-2 border-dashed border-gray-200 rounded-3xl">
+                      <div className="w-12 h-12 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-2">
+                        <Mail className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm font-bold text-gray-800">No booking inquiries yet</p>
+                      <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                        When potential clients submit shoot inquiries from your profile, their project briefs will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {inquiries.map((inq) => (
+                        <div
+                          key={inq.id}
+                          className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        >
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-extrabold text-gray-900 text-sm">{inq.senderName}</span>
+                              <a
+                                href={`mailto:${inq.senderEmail}`}
+                                className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-medium"
+                              >
+                                <Mail className="w-3 h-3" />
+                                <span>{inq.senderEmail}</span>
+                              </a>
+                              <span
+                                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                                  inq.status === 'accepted'
+                                    ? 'bg-green-100 text-green-700'
+                                    : inq.status === 'declined'
+                                    ? 'bg-red-100 text-red-600'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}
+                              >
+                                {inq.status}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
+                              <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-md font-semibold">
+                                {inq.projectType}
+                              </span>
+                              {inq.shootDate && <span>📅 {inq.shootDate}</span>}
+                              {inq.location && <span>📍 {inq.location}</span>}
+                              {inq.budget && <span>💰 {inq.budget}</span>}
+                            </div>
+
+                            <p className="text-xs text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100/80">
+                              {inq.message}
+                            </p>
+                          </div>
+
+                          {/* Status Action Buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0 self-end md:self-center">
+                            {inq.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleUpdateInquiryStatus(inq.id, 'accepted')}
+                                  className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm active:scale-95"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Accept</span>
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateInquiryStatus(inq.id, 'declined')}
+                                  className="inline-flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors"
+                                >
+                                  <XCircle className="w-3.5 h-3.5 text-red-500" />
+                                  <span>Decline</span>
+                                </button>
+                              </>
+                            )}
+                            <a
+                              href={`mailto:${inq.senderEmail}?subject=Regarding your ${inq.projectType} proposal on %23Hashtag`}
+                              className="inline-flex items-center gap-1.5 bg-black hover:bg-gray-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span>Reply</span>
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
@@ -806,6 +1006,21 @@ export default function ProfilePage() {
                   onChange={(e) => setEditBio(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1 flex items-center gap-1.5">
+                  <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Tip Jar / Support URL (BuyMeACoffee, PayPal.me, Ko-fi)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://buymeacoffee.com/yourname or https://paypal.me/yourname"
+                  value={editTip}
+                  onChange={(e) => setEditTip(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Visitors can support your work directly via your tip jar link.</p>
               </div>
 
               <div className="pt-2 flex gap-3">

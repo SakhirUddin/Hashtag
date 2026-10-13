@@ -15,6 +15,7 @@ model User {
   displayName  String
   avatarUrl    String?
   bio          String?
+  tipUrl       String?     // BuyMeACoffee, PayPal.me, Ko-fi donation link
   role         String      @default("creator") // guest, member, creator, admin
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt

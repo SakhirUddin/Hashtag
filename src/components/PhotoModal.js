@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   X, Heart, Download, Share2, MapPin, 
   Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark, Sparkles,
-  MessageSquare, Send, Trash2
+  MessageSquare, Send, Trash2, Coffee
 } from 'lucide-react';
 import { 
   likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser, getRelatedPhotos,
@@ -153,6 +153,102 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
     }
   };
 
+  const downloadCroppedImage = async (presetType) => {
+    setDownloading(true);
+    setDropdownOpen(false);
+
+    try {
+      trackDownloadApi(photoData.id, presetType).then((res) => {
+        if (res && res.downloads !== undefined) {
+          setPhotoData((prev) => ({ ...prev, downloads: res.downloads }));
+          if (onPhotoUpdate) onPhotoUpdate({ id: photoData.id, downloads: res.downloads });
+        }
+      });
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = photoData.url;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      let targetW, targetH;
+      let sX, sY, sW, sH;
+
+      if (presetType === 'wallpaper-9-16') {
+        targetW = 1080;
+        targetH = 1920;
+        const targetAspect = 9 / 16;
+        const imgAspect = img.width / img.height;
+        if (imgAspect > targetAspect) {
+          sH = img.height;
+          sW = img.height * targetAspect;
+          sX = (img.width - sW) / 2;
+          sY = 0;
+        } else {
+          sW = img.width;
+          sH = img.width / targetAspect;
+          sX = 0;
+          sY = (img.height - sH) / 2;
+        }
+      } else if (presetType === 'banner-3-1') {
+        targetW = 1500;
+        targetH = 500;
+        const targetAspect = 3 / 1;
+        const imgAspect = img.width / img.height;
+        if (imgAspect > targetAspect) {
+          sH = img.height;
+          sW = img.height * targetAspect;
+          sX = (img.width - sW) / 2;
+          sY = 0;
+        } else {
+          sW = img.width;
+          sH = img.width / targetAspect;
+          sX = 0;
+          sY = (img.height - sH) / 2;
+        }
+      } else {
+        // square-1-1
+        targetW = 1200;
+        targetH = 1200;
+        const minDim = Math.min(img.width, img.height);
+        sW = minDim;
+        sH = minDim;
+        sX = (img.width - minDim) / 2;
+        sY = (img.height - minDim) / 2;
+      }
+
+      canvas.width = targetW;
+      canvas.height = targetH;
+      ctx.drawImage(img, sX, sY, sW, sH, 0, 0, targetW, targetH);
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          window.open(photoData.url, '_blank');
+          return;
+        }
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `${photoData.title.replace(/\s+/g, '-').toLowerCase()}-${presetType}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 'image/jpeg', 0.95);
+    } catch (err) {
+      console.error('Cropper download error:', err);
+      window.open(photoData.url, '_blank');
+    } finally {
+      setTimeout(() => setDownloading(false), 800);
+    }
+  };
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -225,6 +321,19 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
+            {photoData.photographer?.tipUrl && (
+              <a
+                href={photoData.photographer.tipUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all shadow-sm"
+                title={`Tip ${photoData.photographer.name}`}
+              >
+                <Coffee className="w-3.5 h-3.5 text-amber-600" />
+                <span>Tip</span>
+              </a>
+            )}
+
             <button
               onClick={handleLikeClick}
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full border transition-all ${
@@ -300,6 +409,31 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
                   >
                     <span>Original</span>
                     <span className="text-gray-400">2400 × 1600</span>
+                  </button>
+
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-t border-gray-100 mt-1">
+                    Cropped Presets (Canvas)
+                  </div>
+                  <button
+                    onClick={() => downloadCroppedImage('wallpaper-9-16')}
+                    className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 flex justify-between"
+                  >
+                    <span>📱 Phone Wallpaper</span>
+                    <span className="text-gray-400">9:16</span>
+                  </button>
+                  <button
+                    onClick={() => downloadCroppedImage('banner-3-1')}
+                    className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 flex justify-between"
+                  >
+                    <span>🖥️ Social Banner</span>
+                    <span className="text-gray-400">3:1</span>
+                  </button>
+                  <button
+                    onClick={() => downloadCroppedImage('square-1-1')}
+                    className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 flex justify-between"
+                  >
+                    <span>⏹️ Square Social</span>
+                    <span className="text-gray-400">1:1</span>
                   </button>
                 </div>
               )}

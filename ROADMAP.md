@@ -122,10 +122,12 @@ flowchart TD
   - [x] `BookingInquiry` model in SQLite / Prisma schema (`id`, `creatorId`, `senderId`, `senderName`, `senderEmail`, `projectType`, `shootDate`, `location`, `budget`, `message`, `status`).
   - [x] Clean booking inquiry request modal (`HireCreatorModal.js`) on creator profiles (`ProfilePage.js`) with date picker, project type selector, budget, location, and creative brief.
   - [x] Generates direct real-time lead notifications for the creator.
-- [ ] **Creator Tip Jar ("Buy Me a Coffee")**:
-  - [ ] Optional creator donation link (BuyMeACoffee, Stripe, PayPal) displayed on profile and photo download screens.
-- [ ] **Creator Analytics Studio**:
-  - [ ] Private insights dashboard for photographers: 30-day views graph, top downloaded photos, and geographic reach.
+- [x] **Creator Tip Jar ("Buy Me a Coffee")**:
+  - [x] Optional creator donation link (BuyMeACoffee, Stripe, PayPal) configurable in Edit Profile.
+  - [x] Displayed on creator profile actions bar and photo quickview modal.
+- [x] **Creator Analytics & Inquiries Studio**:
+  - [x] Private "Insights & Leads" dashboard on Profile for photographers: engagement rate, total audience reach, and lead tracker.
+  - [x] 1-click booking inquiry management (Accept / Decline / Direct Email reply).
 
 ---
 
@@ -136,8 +138,12 @@ flowchart TD
 - [ ] **Cloud Media Integration**:
   - Integrate Cloudinary or AWS S3 / Supabase Storage for permanent cloud CDN media delivery.
   - Auto-generate WebP variants (`thumbnail ~400px`, `display ~1920px`, `original`).
-- [ ] **In-Browser Social & Wallpaper Cropper**:
-  - Allow users to download pre-cropped formats: `Original`, `iPhone Wallpaper (9:16)`, `Twitter Banner (3:1)`, or `Square (1:1)`.
+- [x] **In-Browser Social & Wallpaper Cropper**:
+  - [x] Canvas-based instantaneous client-side crop presets inside `PhotoModal.js`:
+    - `Phone Wallpaper (9:16)` (1080x1920 center-crop)
+    - `Social / Twitter Banner (3:1)` (1500x500 banner-crop)
+    - `Square Post (1:1)` (1200x1200 avatar/post crop)
+  - [x] Automatic download tracking per crop preset.
 
 ---
 
