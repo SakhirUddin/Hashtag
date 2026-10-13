@@ -2,24 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   X, Heart, Download, Share2, MapPin, 
-  Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark 
+  Camera, Eye, ArrowDownToLine, Check, ChevronDown, Bookmark, Sparkles 
 } from 'lucide-react';
 import { 
-  likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser 
+  likePhotoApi, trackDownloadApi, recordViewApi, getCurrentUser, getRelatedPhotos 
 } from '../services/api';
 
 export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpdate, onSaveToCollection }) {
   const [photoData, setPhotoData] = useState(photo);
+  const [relatedPhotos, setRelatedPhotos] = useState([]);
   const [downloading, setDownloading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const viewedPhotoIdRef = useRef(null);
+  const modalScrollRef = useRef(null);
 
   useEffect(() => {
     if (!photo) {
       viewedPhotoIdRef.current = null;
       setPhotoData(null);
+      setRelatedPhotos([]);
       return;
     }
 
@@ -39,6 +42,14 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo?.id]);
+
+  useEffect(() => {
+    if (photoData?.id) {
+      getRelatedPhotos(photoData.id).then((items) => {
+        setRelatedPhotos(items || []);
+      });
+    }
+  }, [photoData?.id]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -248,7 +259,7 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
         </div>
 
         {/* Modal Body / Image View */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={modalScrollRef} className="flex-1 overflow-y-auto">
           {/* Main Photo Center */}
           <div className="bg-gray-950 flex items-center justify-center p-2 sm:p-6 min-h-[350px] max-h-[65vh]">
             <img
@@ -358,6 +369,42 @@ export default function PhotoModal({ photo, onClose, onSelectHashtag, onPhotoUpd
                 ))}
               </div>
             </div>
+
+            {/* More Like This (Smart Recommendations Engine) */}
+            {relatedPhotos.length > 0 && (
+              <div className="pt-6 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <h3 className="font-bold text-gray-900 text-sm sm:text-base">More Like This</h3>
+                  <span className="text-xs text-gray-400">({relatedPhotos.length} recommendations)</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {relatedPhotos.map((relPhoto) => (
+                    <div
+                      key={relPhoto.id}
+                      onClick={() => {
+                        setPhotoData(relPhoto);
+                        if (modalScrollRef.current) {
+                          modalScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                      }}
+                      className="group relative rounded-2xl overflow-hidden cursor-pointer bg-gray-100 aspect-[4/3] shadow-sm hover:shadow-lg transition-all"
+                    >
+                      <img
+                        src={relPhoto.thumbnail || relPhoto.url}
+                        alt={relPhoto.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-3 flex flex-col justify-end text-white">
+                        <p className="text-xs font-bold truncate drop-shadow">{relPhoto.title}</p>
+                        <p className="text-[10px] text-gray-300 truncate">by {relPhoto.photographer.name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

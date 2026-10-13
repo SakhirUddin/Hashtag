@@ -15,25 +15,30 @@ export default function MainPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTag, setActiveTag] = useState('All');
+  const [activeSort, setActiveSort] = useState('latest');
+  const [activeOrientation, setActiveOrientation] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [saveModalPhoto, setSaveModalPhoto] = useState(null);
 
   // Fetch photos from backend API
-  const loadPhotos = useCallback(async (tag, query) => {
+  const loadPhotos = useCallback(async (tag, query, sort, orientation) => {
     setLoading(true);
     try {
-      const data = await getPhotos(tag, query);
+      const data = await getPhotos(tag, query, sort, orientation);
       setPhotos(data);
     } catch (err) {
       console.warn('Backend API unavailable, falling back to cached photos:', err);
       // Client-side fallback if server is offline
-      const filtered = MOCK_PHOTOS.filter((p) => {
+      let filtered = MOCK_PHOTOS.filter((p) => {
         const matchesTag = tag === 'All' || p.hashtags.some(t => t.toLowerCase() === tag.toLowerCase());
         const term = query.toLowerCase().trim();
         const matchesSearch = !term || p.title.toLowerCase().includes(term) || p.hashtags.some(t => t.toLowerCase().includes(term));
         return matchesTag && matchesSearch;
       });
+      if (sort === 'popular') filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+      if (sort === 'downloads') filtered.sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+      if (sort === 'views') filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
       setPhotos(filtered);
     } finally {
       setLoading(false);
@@ -42,10 +47,10 @@ export default function MainPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      loadPhotos(activeTag, searchTerm);
+      loadPhotos(activeTag, searchTerm, activeSort, activeOrientation);
     }, 250);
     return () => clearTimeout(timer);
-  }, [activeTag, searchTerm, loadPhotos]);
+  }, [activeTag, searchTerm, activeSort, activeOrientation, loadPhotos]);
 
   const handleSelectHashtag = (tag) => {
     setActiveTag(tag);
@@ -90,6 +95,16 @@ export default function MainPage() {
       <HashtagBar
         activeTag={activeTag}
         onSelectTag={handleSelectHashtag}
+        activeSort={activeSort}
+        onSelectSort={(s) => setActiveSort(s)}
+        activeOrientation={activeOrientation}
+        onSelectOrientation={(o) => setActiveOrientation(o)}
+        onResetFilters={() => {
+          setSearchTerm('');
+          setActiveTag('All');
+          setActiveSort('latest');
+          setActiveOrientation('all');
+        }}
       />
 
       {/* Main Content Gallery */}
@@ -110,15 +125,17 @@ export default function MainPage() {
             </p>
           </div>
 
-          {(searchTerm || activeTag !== 'All') && (
+          {(searchTerm || activeTag !== 'All' || activeSort !== 'latest' || activeOrientation !== 'all') && (
             <button
               onClick={() => {
                 setSearchTerm('');
                 setActiveTag('All');
+                setActiveSort('latest');
+                setActiveOrientation('all');
               }}
               className="text-xs font-semibold text-gray-500 hover:text-black underline underline-offset-4"
             >
-              Reset Filters
+              Reset All Filters
             </button>
           )}
         </div>

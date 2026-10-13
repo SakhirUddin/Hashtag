@@ -5,10 +5,12 @@ export function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getPhotos(tag = 'All', search = '') {
+export async function getPhotos(tag = 'All', search = '', sort = 'latest', orientation = 'all') {
   const params = new URLSearchParams();
   if (tag && tag.toLowerCase() !== 'all') params.append('tag', tag);
   if (search && search.trim()) params.append('q', search.trim());
+  if (sort && sort !== 'latest') params.append('sort', sort);
+  if (orientation && orientation !== 'all') params.append('orientation', orientation);
 
   const response = await fetch(`${API_BASE}/photos?${params.toString()}`, {
     headers: { ...getAuthHeaders() },
@@ -16,6 +18,19 @@ export async function getPhotos(tag = 'All', search = '') {
   if (!response.ok) throw new Error('Failed to fetch photos');
   const data = await response.json();
   return data.photos;
+}
+
+export async function getRelatedPhotos(photoId) {
+  try {
+    const response = await fetch(`${API_BASE}/photos/${photoId}/related`, {
+      headers: { ...getAuthHeaders() },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.photos || [];
+  } catch (err) {
+    return [];
+  }
 }
 
 export async function getTags() {

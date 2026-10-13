@@ -92,34 +92,69 @@ const formatPhoto = (photo, currentUserId) => {
   };
 };
 
-// GET /api/photos (supports ?tag=Nature and ?q=search_term)
+// GET /api/photos (supports ?tag=Nature, ?q=search_term, ?sort=popular|views|downloads|oldest|latest, ?orientation=landscape|portrait|square)
 router.get('/', async (req, res) => {
   try {
     const currentUser = extractUser(req);
-    const { tag, q } = req.query;
+    const { tag, q, sort, orientation } = req.query;
 
-    const where = {};
+    const conditions = [];
 
     if (tag && tag.toLowerCase() !== 'all') {
-      where.tags = {
-        some: {
-          tag: {
-            name: {
-              equals: tag,
+      conditions.push({
+        tags: {
+          some: {
+            tag: {
+              name: {
+                equals: tag,
+              },
             },
           },
         },
-      };
+      });
     }
 
     if (q && q.trim()) {
       const search = q.trim().replace(/^#/, '');
-      where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
-        { user: { displayName: { contains: search } } },
-        { tags: { some: { tag: { name: { contains: search } } } } },
-      ];
+      conditions.push({
+        OR: [
+          { title: { contains: search } },
+          { description: { contains: search } },
+          { user: { displayName: { contains: search } } },
+          { tags: { some: { tag: { name: { contains: search } } } } },
+        ],
+      });
+    }
+
+    if (orientation) {
+      const orientLower = orientation.toLowerCase();
+      if (orientLower === 'landscape') {
+        conditions.push({
+          aspectRatio: { in: ['16/9', 'landscape', '16:9', '3/2', '4/3'] },
+        });
+      } else if (orientLower === 'portrait') {
+        conditions.push({
+          aspectRatio: { in: ['9/16', 'portrait', '9:16', '2/3', '4/5', '3/4'] },
+        });
+      } else if (orientLower === 'square') {
+        conditions.push({
+          aspectRatio: { in: ['1/1', 'square', '1:1'] },
+        });
+      }
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {};
+
+    // Determine sort order
+    let orderBy = { createdAt: 'desc' };
+    if (sort === 'likes' || sort === 'popular') {
+      orderBy = { likesCount: 'desc' };
+    } else if (sort === 'views') {
+      orderBy = { viewsCount: 'desc' };
+    } else if (sort === 'downloads') {
+      orderBy = { downloadsCount: 'desc' };
+    } else if (sort === 'oldest') {
+      orderBy = { createdAt: 'asc' };
     }
 
     const photos = await prisma.photo.findMany({
@@ -129,7 +164,7 @@ router.get('/', async (req, res) => {
         tags: { include: { tag: true } },
         likes: currentUser ? { where: { userId: currentUser.id } } : false,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
     });
 
     res.json({ photos: photos.map((p) => formatPhoto(p, currentUser?.id)) });
@@ -157,6 +192,67 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Fetch photo error:', error);
     res.status(500).json({ error: 'Failed to retrieve photo' });
+  }
+});
+
+// GET /api/photos/:id/related - "More Like This" recommendation engine
+router.get('/:id/related', async (req, res) => {
+  try {
+    const currentUser = extractUser(req);
+    const photo = await prisma.photo.findUnique({
+      where: { id: req.params.id },
+      include: {
+        tags: { include: { tag: true } },
+      },
+    });
+
+    if (!photo) return res.status(404).json({ error: 'Photo not found' });
+
+    const tagIds = photo.tags.map((pt) => pt.tagId);
+
+    // Find other photos that share tags or same author
+    const orConditions = [];
+    if (tagIds.length > 0) {
+      orConditions.push({ tags: { some: { tagId: { in: tagIds } } } });
+    }
+    orConditions.push({ userId: photo.userId });
+
+    let relatedPhotos = await prisma.photo.findMany({
+      where: {
+        id: { not: photo.id },
+        OR: orConditions,
+      },
+      take: 6,
+      include: {
+        user: true,
+        tags: { include: { tag: true } },
+        likes: currentUser ? { where: { userId: currentUser.id } } : false,
+      },
+      orderBy: { likesCount: 'desc' },
+    });
+
+    // Fallback if not enough matching tag/author photos: fill with top viewed community photos
+    if (relatedPhotos.length < 4) {
+      const existingIds = [photo.id, ...relatedPhotos.map((p) => p.id)];
+      const additional = await prisma.photo.findMany({
+        where: {
+          id: { notIn: existingIds },
+        },
+        take: 6 - relatedPhotos.length,
+        include: {
+          user: true,
+          tags: { include: { tag: true } },
+          likes: currentUser ? { where: { userId: currentUser.id } } : false,
+        },
+        orderBy: { viewsCount: 'desc' },
+      });
+      relatedPhotos = [...relatedPhotos, ...additional];
+    }
+
+    res.json({ photos: relatedPhotos.map((p) => formatPhoto(p, currentUser?.id)) });
+  } catch (error) {
+    console.error('Fetch related photos error:', error);
+    res.status(500).json({ error: 'Failed to retrieve related photos' });
   }
 });
 

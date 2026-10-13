@@ -70,15 +70,16 @@ flowchart LR
 *Goal: Enhance discovery for designers, developers, and photo enthusiasts.*
 
 ### Tasks:
-- [ ] **Orientation Filters**:
-  - Filter by `All`, `Landscape (16:9)`, `Portrait (9:16)`, `Square (1:1)` in `HashtagBar.js`.
-- [ ] **Smart Sorting Dropdown**:
-  - Sort by: `Trending` (high likes in recent days), `Most Liked`, `Most Downloaded`, `Most Viewed`, and `Newest`.
+- [x] **Orientation Filters**:
+  - [x] Filter by `All Formats`, `Landscape (16:9)`, `Portrait (9:16)`, `Square (1:1)` in upgraded `HashtagBar.js`.
+- [x] **Smart Sorting Dropdown**:
+  - [x] Sort by: `Latest Submissions`, `Most Liked & Trending`, `Most Viewed`, and `Most Downloaded`.
+- [x] **Related Photos Engine ("More Like This")**:
+  - [x] Backend endpoint `GET /api/photos/:id/related` matching shared hashtags, category, and creator.
+  - [x] Interactive "More Like This" recommendation cards in `PhotoModal.js` with instant in-modal preview and smooth auto-scroll.
 - [ ] **Color Discovery**:
-  - Color picker swatch pill bar (Red, Green, Blue, Dark/Monochrome, Warm, Pastel).
-  - Filter photos matching dominant color palettes.
-- [ ] **Related Photos Engine**:
-  - Display a "More Like This" section at the bottom of `PhotoModal.js` matching tags and visual style.
+  - [ ] Color picker swatch pill bar (Red, Green, Blue, Dark/Monochrome, Warm, Pastel).
+  - [ ] Filter photos matching dominant color palettes.
 
 ---
 
